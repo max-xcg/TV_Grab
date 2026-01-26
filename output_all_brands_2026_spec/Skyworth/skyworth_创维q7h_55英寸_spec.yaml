@@ -1,0 +1,85 @@
+meta:                                   # 元信息
+  launch_date: 2026-01                  # 首发时间：YYYY-MM（未知填 null）
+  first_release: null                   # 是否为该系列首发批次（未知填 null）
+  data_source: tvlabs.cn                # 数据来源
+  price_cny: 5899                       # 官方/标注价格（CNY；未知填 null）
+  last_updated: 2026-01-24            # 更新时间：YYYY-MM-DD（未知填 null）
+product_id: skyworth_创维q7h_55英寸                  # 产品唯一ID（建议 brand_model_size）
+brand: Skyworth                              # 品牌（建议用 brands.yaml 的 brand_path）
+model: 创维Q7H 55英寸                           # 型号
+category: tv                            # 品类（tv）
+positioning:                            # 市场定位
+  tier: null                        # 档位枚举（entry_level/midrange/upper_midrange/high_end）或 null
+  type: gaming_tv                            # 类型枚举（gaming_tv/non_gaming_tv）或 null
+  gaming_grade: null                    # 游戏定位（flagship/...；非游戏电视用 non_gaming_tv）或 null
+display:                                # 显示参数
+  size_inch: 55                         # 屏幕尺寸（英寸；未知填 null）
+  resolution: 4k                        # 分辨率（4k/8k/...；未知填 null）
+  technology: lcd                       # 显示技术枚举（lcd/mini_led_lcd/qd_mini_led_lcd/oled/...；未知填 null）
+  panel_type: hard                      # 面板类型（soft/hard；未知填 null）
+  backlight_type: direct_lit            # 背光方式（direct_lit/edge_lit；未知填 null）
+  peak_brightness_nits: 1800             # 峰值亮度（尼特；未知填 null）
+  local_dimming_zones: 180             # 控光分区数量（不支持/未知填 null）
+  dimming_structure: chessboard               # 分区结构（chessboard/...；未知填 null）
+  color_gamut_dci_p3_pct: 99.0          # DCI-P3 色域覆盖率（%；未知填 null）
+  quantum_dot: true                     # 是否量子点（true/false；未知填 null）
+  anti_reflection:                      # 抗反射
+    type: low_reflection_coating                          # 抗反射类型（low_reflection_coating/matte/...；未知填 null）
+    reflectance_pct: 2.6               # 反射率（%；未知填 null）
+refresh:                                # 刷新与运动
+  native_hz: 60                        # 原生刷新率（Hz；未知填 null）
+  dlf_max_hz: 120                       # DLG/DLF 倍频最高刷新率（Hz；未知填 null）
+  memc:                                 # 运动补偿（MEMC）
+    supported: true                     # 是否支持 MEMC（true/false；未知填 null）
+    max_fps: 60                        # 最大插帧帧率（fps；未知填 null）
+processing:                             # 画质处理
+  picture_chip:                         # 画质芯片
+    name: null                               # 芯片名称（未知填 null）
+    type: null                               # 芯片类型（未知填 null）
+soc:                                    # 主控 SoC
+  vendor: null                      # SoC 厂商（mediatek/...；未知填 null）
+  model: null                         # SoC 型号（mt9655/...；未知填 null）
+  cpu:                                  # CPU
+    architecture: null               # CPU 架构（arm_a73/...；未知填 null）
+    cores: null                            # CPU 核心数（未知填 null）
+    clock_ghz: null                      # CPU 主频（GHz；未知填 null）
+memory:                                 # 内存与存储
+  ram_gb: 4.0                           # 运行内存（GB；未知填 null）
+  storage_gb: 64                        # 存储空间（GB；未知填 null）
+interfaces:                             # 接口
+  hdmi:                                 # HDMI
+    version: 2.0                      # HDMI 版本（未知填 null）
+    bandwidth_gbps: 18.0                # HDMI 带宽（Gbps；未知填 null）
+    ports: 3                            # HDMI 数量（未知填 null）
+  usb:                                  # USB
+    usb_2_0: 2                          # USB 2.0 数量（未知填 null）
+    usb_3_0: null                          # USB 3.0 数量（未知填 null）
+network:                                # 网络
+  wifi:                                 # Wi-Fi
+    standard: null                    # Wi-Fi 标准（wifi_6/...；未知填 null）
+    band: dual_band                     # Wi-Fi 频段（dual_band/...；未知填 null）
+audio:                                  # 音频
+  speaker_channels: 2.1               # 声道（如 2.1/2.2.2；未知填 null）
+power:                                  # 功耗
+  max_power_w: 200                          # 最大功率（W；未知填 null）
+system:                                 # 系统特性
+  boot_ad: true                        # 是否无开机广告（true/false；未知填 null）
+  third_party_app_install: true         # 是否支持安装第三方 APP（true/false；未知填 null）
+  voice_assistant: far_field_voice      # 语音助手（如 far_field_voice；未知填 null）
+gaming_features:                        # 游戏特性
+  allm: true                            # ALLM（true/false；未知填 null）
+  vrr: null                                  # VRR（true/false；未知填 null）
+  input_lag_4k60hz_ms: null             # 输入延迟（4K60；ms；未知填 null）
+camera:                                 # 摄像头
+  built_in: false                       # 是否内置摄像头（true/false；未知填 null）
+hdr_audio_support:                      # HDR/音效增强
+  hdr: true                             # 是否支持 HDR（默认 true）
+  audio_effect: true                    # 是否支持音效增强（默认 true）
+dimensions_mm:                          # 由 __extras__ 解析出的尺寸信息（毫米）
+  length_mm: 1226.0                     # 长度（mm；未知填 null）
+  height_mm: 710.0                     # 高度（mm；裸机高度；未知填 null）
+  thickness_mm: 50.0                    # 厚度（mm；裸机厚度；未知填 null）
+  with_stand_height_mm: null          # 含底座高度（mm；未知填 null）
+  wall_mount_v_hole_mm: null           # 壁挂孔距高度（mm；VESA 竖向；未知填 null）
+  wall_mount_h_hole_mm: null           # 壁挂孔距宽度（mm；VESA 横向；未知填 null）
+detail_url: 'https://tvlabs.cn/tv/Skyworth/Skyworth-55Q7H' # 参数详情页链接

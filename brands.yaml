@@ -1,0 +1,75 @@
+source: https://tvlabs.cn/tv
+brand_count: 24
+brands:
+- brand_path: Casarte
+  brand_url: https://tvlabs.cn/tv/Casarte
+  brand_name: 卡萨帝 共收录 63 款机型
+- brand_path: changhong
+  brand_url: https://tvlabs.cn/tv/changhong
+  brand_name: 长虹 共收录 200 款机型
+- brand_path: coocaa
+  brand_url: https://tvlabs.cn/tv/coocaa
+  brand_name: 酷开 共收录 72 款机型
+- brand_path: DREAME
+  brand_url: https://tvlabs.cn/tv/DREAME
+  brand_name: 追觅 共收录 5 款机型
+- brand_path: ffalcon
+  brand_url: https://tvlabs.cn/tv/ffalcon
+  brand_name: 雷鸟 共收录 142 款机型
+- brand_path: Haier
+  brand_url: https://tvlabs.cn/tv/Haier
+  brand_name: 海尔 共收录 112 款机型
+- brand_path: hisense
+  brand_url: https://tvlabs.cn/tv/hisense
+  brand_name: 海信 共收录 459 款机型
+- brand_path: HONOR
+  brand_url: https://tvlabs.cn/tv/HONOR
+  brand_name: 荣耀 共收录 16 款机型
+- brand_path: huawei
+  brand_url: https://tvlabs.cn/tv/huawei
+  brand_name: 华为 共收录 101 款机型
+- brand_path: KONKA
+  brand_url: https://tvlabs.cn/tv/KONKA
+  brand_name: 康佳 共收录 135 款机型
+- brand_path: LG
+  brand_url: https://tvlabs.cn/tv/LG
+  brand_name: LG 共收录 72 款机型
+- brand_path: mi
+  brand_url: https://tvlabs.cn/tv/mi
+  brand_name: 小米 共收录 59 款机型
+- brand_path: OPPO
+  brand_url: https://tvlabs.cn/tv/OPPO
+  brand_name: OPPO 共收录 11 款机型
+- brand_path: Panasonic
+  brand_url: https://tvlabs.cn/tv/Panasonic
+  brand_name: 松下 共收录 41 款机型
+- brand_path: PHILIPS
+  brand_url: https://tvlabs.cn/tv/PHILIPS
+  brand_name: 飞利浦 共收录 57 款机型
+- brand_path: Redmi
+  brand_url: https://tvlabs.cn/tv/Redmi
+  brand_name: Redmi 共收录 59 款机型
+- brand_path: SAMSUNG
+  brand_url: https://tvlabs.cn/tv/SAMSUNG
+  brand_name: 三星 共收录 182 款机型
+- brand_path: SHARP
+  brand_url: https://tvlabs.cn/tv/SHARP
+  brand_name: 夏普 共收录 52 款机型
+- brand_path: Skyworth
+  brand_url: https://tvlabs.cn/tv/Skyworth
+  brand_name: 创维 共收录 424 款机型
+- brand_path: SONY
+  brand_url: https://tvlabs.cn/tv/SONY
+  brand_name: 索尼 共收录 97 款机型
+- brand_path: TCL
+  brand_url: https://tvlabs.cn/tv/TCL
+  brand_name: TCL 共收录 519 款机型
+- brand_path: TOSHIBA
+  brand_url: https://tvlabs.cn/tv/TOSHIBA
+  brand_name: 东芝 共收录 96 款机型
+- brand_path: Vidda
+  brand_url: https://tvlabs.cn/tv/Vidda
+  brand_name: Vidda 共收录 113 款机型
+- brand_path: xiaodu
+  brand_url: https://tvlabs.cn/tv/xiaodu
+  brand_name: 小度 共收录 2 款机型

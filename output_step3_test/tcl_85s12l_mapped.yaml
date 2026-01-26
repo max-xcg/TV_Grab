@@ -1,0 +1,127 @@
+meta:
+  launch_date: 2025-12
+  first_release: null
+  data_source: tvlabs.cn
+  price_cny: null
+  last_updated: '2026-01-23'
+product_id: tcl_85s12l
+brand: TCL
+model: 85S12L
+category: tv
+positioning:
+  tier: 中端
+  type: null
+  gaming_grade: null
+display:
+  size_inch: null
+  resolution: 4k
+  technology: lcd
+  panel_type: soft
+  backlight_type: direct_lit
+  peak_brightness_nits: 500
+  local_dimming_zones: null
+  dimming_structure: null
+  color_gamut_dci_p3_pct: 93.0
+  quantum_dot: null
+  anti_reflection:
+    type: null
+    reflectance_pct: null
+refresh:
+  native_hz: 144
+  dlf_max_hz: 288
+  memc:
+    supported: true
+    max_fps: 120
+processing:
+  picture_chip:
+    name: null
+    type: null
+soc:
+  vendor: mediatek
+  model: mt9653
+  cpu:
+    architecture: arm_a73
+    cores: null
+    clock_ghz: 9653.0
+memory:
+  ram_gb: 3.0
+  storage_gb: 64
+interfaces:
+  hdmi:
+    version: '2.1'
+    bandwidth_gbps: 2
+    ports: 2
+  usb:
+    usb_2_0: 1
+    usb_3_0: 1
+network:
+  wifi:
+    standard: wifi_6
+    band: dual_band
+audio:
+  speaker_channels: '2.1'
+power:
+  max_power_w: null
+system:
+  boot_ad: false
+  third_party_app_install: true
+  voice_assistant: far_field_voice
+gaming_features:
+  allm: true
+  vrr: null
+  input_lag_4k60hz_ms: null
+camera:
+  built_in: false
+hdr_audio_support:
+  hdr: true
+  audio_effect: true
+detail_url: https://tvlabs.cn/tv/TCL/TCL-85S12L
+raw_detail_kv:
+  电视等级: 中端
+  游戏电视 游戏电视: 非游戏电视
+  壁挂尺寸: 壁挂孔距高度 400.0 mm 壁挂孔距宽度 600.0 mm
+  显示技术: 普通液晶
+  LCD形式: 软屏
+  背光方式: 直下式
+  屏幕刷新率: 144 Hz
+  倍频技术: DLG (最高 288 Hz)
+  峰值亮度: 500 尼特 (Nit)
+  控光分区: 不支持
+  运动补偿: 支持 (120 FPS)
+  广色域: ~ 93.0% DCI-P3 ( 白光量子点 )
+  抗反射: 无
+  CPU: 联发科MT9653 A73四核1.4GHz
+  联发科MT9653: A73四核1.4GHz
+  运行内存: 3.0 GB
+  存储空间: 64 GB
+  HDMI接口: HDMI 2.1 (≥40Gbps) x 2
+  USB接口: USB 2.0 x 1 USB 3.0 x 1
+  开机广告: 无
+  安装第三方安卓APP: 可安装
+  语音助手: 远场智能语音
+  扬声器: 2.1声道
+  电源功率: 未知
+  WI-FI: 双频（WIFI 6）
+  输入延时 测试规格为 4K 60hz: 未知
+  ALLM: 支持
+  摄像头: 无
+  TCL 85S12L: 首发于 2025年12月
+  85 英寸: 4K
+  '“蓝大点评”:': 电源功率、音响功率未知，查不到。
+  TCL 55S12L: 55 英寸 4K 普通液晶
+  55 英寸: 4K
+  TCL 65S12L: 65 英寸 4K 普通液晶
+  65 英寸: 4K
+  TCL 75S12L: 75 英寸 4K 普通液晶
+  75 英寸: 4K
+  浙ICP备2021028640号-1: 浙公网安备33048302000921号
+  __extras__:
+  - 长度 1889.6 mm
+  - 高度 1086.0 mm
+  - 高度 1152.0 mm
+  - 高度 400.0 mm
+  - 裸机厚度 63.0 mm
+  - 含底座高度 1152.0 mm
+  - 壁挂孔距高度 400.0 mm
+  - 壁挂孔距宽度 600.0 mm
+  - 4K

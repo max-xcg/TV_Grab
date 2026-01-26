@@ -1,0 +1,81 @@
+meta:
+  launch_date: 2025-07                  # 首发时间：YYYY-MM（未知填 null）
+  first_release: null              # 是否为该系列首发批次（未知填 null）
+  data_source: tvlabs.cn                  # 数据来源
+  price_cny: 2999                      # 官方/标注价格（CNY；未知填 null）
+  last_updated: 2026-01-24                # 更新时间：YYYY-MM-DD（未知填 null）
+product_id: hisense_海信55d30qd                              # 产品唯一ID
+brand: hisense                                        # 品牌（brand_path）
+model: 海信55D30QD                                        # 型号
+category: tv                                  # 品类（tv）
+positioning:
+  tier: null
+  type: non_gaming_tv
+  gaming_grade: non_gaming_tv
+display:
+  size_inch: 55
+  resolution: 4k
+  technology: lcd
+  panel_type: soft
+  backlight_type: direct_lit
+  peak_brightness_nits: 300
+  local_dimming_zones: null
+  dimming_structure: null
+  color_gamut_dci_p3_pct: null
+  quantum_dot: null
+  anti_reflection:
+    type: null
+    reflectance_pct: null
+refresh:
+  native_hz: 60
+  dlf_max_hz: 144
+  memc:
+    supported: true
+    max_fps: 60
+soc:
+  vendor: mediatek
+  model: mt9632
+  cpu:
+    architecture: null
+    cores: 4
+    clock_ghz: 1.5
+memory:
+  ram_gb: 2.0
+  storage_gb: 32
+interfaces:
+  hdmi:
+    version: 2.0
+    bandwidth_gbps: 18.0
+    ports: 2
+  usb:
+    usb_2_0: 2
+    usb_3_0: 1
+network:
+  wifi:
+    standard: null
+    band: null
+audio:
+  speaker_channels: null
+power:
+  max_power_w: 110
+system:
+  boot_ad: true                        # 是否有开机广告（true=有，false=无；未知填 null）
+  third_party_app_install: true
+  voice_assistant: far_field_voice
+gaming_features:
+  allm: true
+  vrr: null
+  input_lag_4k60hz_ms: null
+camera:
+  built_in: false
+hdr_audio_support:
+  hdr: true
+  audio_effect: true
+dimensions_mm:
+  length_mm: 1227.0
+  height_mm: 719.0
+  thickness_mm: 72.0
+  with_stand_height_mm: 752.0
+  wall_mount_v_hole_mm: 200.0
+  wall_mount_h_hole_mm: 400.0
+detail_url: 'https://tvlabs.cn/tv/hisense/hisense-55D30QD'

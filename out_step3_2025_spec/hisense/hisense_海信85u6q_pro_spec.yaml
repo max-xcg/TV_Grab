@@ -1,0 +1,81 @@
+meta:
+  launch_date: 2025-11                  # 首发时间：YYYY-MM（未知填 null）
+  first_release: null              # 是否为该系列首发批次（未知填 null）
+  data_source: tvlabs.cn                  # 数据来源
+  price_cny: 13999                      # 官方/标注价格（CNY；未知填 null）
+  last_updated: 2026-01-24                # 更新时间：YYYY-MM-DD（未知填 null）
+product_id: hisense_海信85u6q_pro                              # 产品唯一ID
+brand: hisense                                        # 品牌（brand_path）
+model: 海信85U6Q Pro                                        # 型号
+category: tv                                  # 品类（tv）
+positioning:
+  tier: null
+  type: gaming_tv
+  gaming_grade: null
+display:
+  size_inch: 85
+  resolution: 4k
+  technology: mini_led_lcd
+  panel_type: soft
+  backlight_type: direct_lit
+  peak_brightness_nits: 2800
+  local_dimming_zones: 1792
+  dimming_structure: chessboard
+  color_gamut_dci_p3_pct: 98.0
+  quantum_dot: null
+  anti_reflection:
+    type: low_reflection_coating
+    reflectance_pct: 2.6
+refresh:
+  native_hz: 170
+  dlf_max_hz: 300
+  memc:
+    supported: true
+    max_fps: 120
+soc:
+  vendor: mediatek
+  model: mt9655
+  cpu:
+    architecture: arm_a73
+    cores: 4
+    clock_ghz: 1.8
+memory:
+  ram_gb: 4.0
+  storage_gb: 64
+interfaces:
+  hdmi:
+    version: 2.1
+    bandwidth_gbps: 40.0
+    ports: 4
+  usb:
+    usb_2_0: 2
+    usb_3_0: 1
+network:
+  wifi:
+    standard: wifi_6
+    band: dual_band
+audio:
+  speaker_channels: 4.1.2
+power:
+  max_power_w: 450
+system:
+  boot_ad: true                        # 是否有开机广告（true=有，false=无；未知填 null）
+  third_party_app_install: true
+  voice_assistant: far_field_voice
+gaming_features:
+  allm: true
+  vrr: null
+  input_lag_4k60hz_ms: null
+camera:
+  built_in: false
+hdr_audio_support:
+  hdr: true
+  audio_effect: true
+dimensions_mm:
+  length_mm: 1895.0
+  height_mm: 1102.0
+  thickness_mm: 46.0
+  with_stand_height_mm: null
+  wall_mount_v_hole_mm: 400.0
+  wall_mount_h_hole_mm: 600.0
+detail_url: 'https://tvlabs.cn/tv/hisense/hisense-85U6Q-Pro'

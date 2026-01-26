@@ -1,0 +1,114 @@
+meta:
+  launch_date: 2025-12
+  first_release: null
+  data_source: tvlabs.cn
+  price_cny: null
+  last_updated: '2026-01-23'
+product_id: tcl_85s12l
+brand: TCL
+model: 85S12L
+category: tv
+positioning:
+  tier: null
+  type: null
+  gaming_grade: null
+display:
+  size_inch: null
+  resolution: null
+  technology: null
+  panel_type: null
+  backlight_type: null
+  peak_brightness_nits: null
+  local_dimming_zones: null
+  dimming_structure: null
+  color_gamut_dci_p3_pct: null
+  quantum_dot: null
+  anti_reflection:
+    type: null
+    reflectance_pct: null
+refresh:
+  native_hz: null
+  dlf_max_hz: null
+  memc:
+    supported: null
+    max_fps: null
+processing:
+  picture_chip:
+    name: null
+    type: null
+soc:
+  vendor: null
+  model: null
+  cpu:
+    architecture: null
+    cores: null
+    clock_ghz: null
+memory:
+  ram_gb: null
+  storage_gb: null
+interfaces:
+  hdmi:
+    version: null
+    bandwidth_gbps: null
+    ports: null
+  usb:
+    usb_2_0: null
+    usb_3_0: null
+network:
+  wifi:
+    standard: null
+    band: null
+audio:
+  speaker_channels: null
+power:
+  max_power_w: null
+system:
+  boot_ad: null
+  third_party_app_install: null
+  voice_assistant: null
+gaming_features:
+  allm: null
+  vrr: null
+  input_lag_4k60hz_ms: null
+camera:
+  built_in: null
+hdr_audio_support:
+  hdr: true
+  audio_effect: true
+detail_url: https://tvlabs.cn/tv/TCL/TCL-85S12L
+raw_detail_kv:
+  电视等级 等级分类标准: 中端
+  显示技术: 普通液晶
+  LCD 形式: 软屏
+  背光方式: 直下式
+  屏幕刷新率: 144 Hz
+  倍频技术: DLG (最高 288 Hz)
+  峰值亮度: 500 尼特 (Nit)
+  控光分区: 不支持
+  运动补偿 (MEMC): 支持 (120 FPS)
+  广色域: ~ 93.0% DCI-P3 ( 白光量子点 )
+  抗反射: 无
+  联发科MT9653: A73四核1.4GHz
+  运行内存: 3.0 GB
+  存储空间: 64 GB
+  HDMI 接口: HDMI 2.1 (≥40Gbps) x 2
+  USB 接口: USB 2.0 x 1 USB 3.0 x 1
+  开机广告: 无
+  安装第三方安卓 APP: 可安装
+  语音助手: 远场智能语音
+  扬声器: 2.1声道
+  电源功率: 未知
+  摄像头: 无
+  官方价 ¥ 8999: 京东购买
+  官方价: ¥ 8999
+  '“蓝大点评”:': 电源功率、音响功率未知，查不到。
+  查看详情: 加入对比
+  现在看: 选电视
+  __extras__:
+  - 长度 1889.6 mm
+  - 高度 1086.0 mm
+  - 高度 1152.0 mm
+  - 高度 400.0 mm
+  - 裸机厚度 63.0 mm
+  - 含底座高度 1152.0 mm
+  - 4K

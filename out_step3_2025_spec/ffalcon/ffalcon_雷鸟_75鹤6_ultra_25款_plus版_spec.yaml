@@ -1,0 +1,81 @@
+meta:
+  launch_date: 2025-04                  # 首发时间：YYYY-MM（未知填 null）
+  first_release: null              # 是否为该系列首发批次（未知填 null）
+  data_source: tvlabs.cn                  # 数据来源
+  price_cny: 5198                      # 官方/标注价格（CNY；未知填 null）
+  last_updated: 2026-01-23                # 更新时间：YYYY-MM-DD（未知填 null）
+product_id: ffalcon_雷鸟_75鹤6_ultra_25款_plus版                              # 产品唯一ID
+brand: ffalcon                                        # 品牌（brand_path）
+model: 雷鸟 75鹤6 Ultra 25款（PLUS版）                                        # 型号
+category: tv                                  # 品类（tv）
+positioning:
+  tier: null
+  type: gaming_tv
+  gaming_grade: null
+display:
+  size_inch: 75
+  resolution: 4k
+  technology: mini_led_lcd
+  panel_type: soft
+  backlight_type: direct_lit
+  peak_brightness_nits: 2000
+  local_dimming_zones: 704
+  dimming_structure: chessboard
+  color_gamut_dci_p3_pct: 93.0
+  quantum_dot: true
+  anti_reflection:
+    type: low_reflection_coating
+    reflectance_pct: 1.8
+refresh:
+  native_hz: 144
+  dlf_max_hz: 288
+  memc:
+    supported: true
+    max_fps: 120
+soc:
+  vendor: mediatek
+  model: mt9655
+  cpu:
+    architecture: arm_a73
+    cores: 4
+    clock_ghz: 1.8
+memory:
+  ram_gb: 4.0
+  storage_gb: 64
+interfaces:
+  hdmi:
+    version: 2.1
+    bandwidth_gbps: 40.0
+    ports: 4
+  usb:
+    usb_2_0: 1
+    usb_3_0: 1
+network:
+  wifi:
+    standard: wifi_6
+    band: dual_band
+audio:
+  speaker_channels: 2.1.2
+power:
+  max_power_w: 300
+system:
+  boot_ad: false                        # 是否有开机广告（true=有，false=无；未知填 null）
+  third_party_app_install: true
+  voice_assistant: far_field_voice
+gaming_features:
+  allm: true
+  vrr: null
+  input_lag_4k60hz_ms: null
+camera:
+  built_in: false
+hdr_audio_support:
+  hdr: true
+  audio_effect: true
+dimensions_mm:
+  length_mm: 1667.0
+  height_mm: 960.0
+  thickness_mm: 72.0
+  with_stand_height_mm: 1024.0
+  wall_mount_v_hole_mm: 400.0
+  wall_mount_h_hole_mm: 400.0
+detail_url: 'https://tvlabs.cn/tv/ffalcon/75S595C-Ultra'
