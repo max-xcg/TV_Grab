@@ -1,0 +1,18 @@
+product:
+  id: konka_康佳85m5e
+  brand: KONKA
+  model: 康佳85M5E
+  year: 2025
+  launch_date: 2025-09
+  size_inch: 85
+price:
+  street_rmb: 6971
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 500
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

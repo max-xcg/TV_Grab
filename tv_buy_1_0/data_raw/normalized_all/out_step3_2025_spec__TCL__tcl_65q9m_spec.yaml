@@ -1,0 +1,22 @@
+product:
+  id: tcl_65q9m
+  brand: TCL
+  model: 65Q9M
+  year: 2025
+  launch_date: 2025-09
+  size_inch: 65
+price:
+  street_rmb: 6499
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 2000
+  local_dimming_zones: 448
+  color_gamut_dci_p3: 0.99
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

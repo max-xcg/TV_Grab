@@ -1,0 +1,20 @@
+product:
+  id: skyworth_创维65q7f_pro
+  brand: Skyworth
+  model: 创维65Q7F Pro
+  year: 2025
+  launch_date: 2025-05
+  size_inch: 65
+price:
+  street_rmb: 10999
+display:
+  technology: mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 3500
+  local_dimming_zones: 1152
+  color_gamut_dci_p3: 0.96
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 128

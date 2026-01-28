@@ -1,0 +1,19 @@
+product:
+  id: coocaa_酷开100c3_pro
+  brand: coocaa
+  model: 酷开100C3 Pro
+  year: 2025
+  launch_date: 2025-01
+  size_inch: 100
+price:
+  street_rmb: 10499
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 600
+  color_gamut_dci_p3: 0.93
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 128

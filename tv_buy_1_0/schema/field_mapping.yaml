@@ -1,0 +1,55 @@
+version: 1
+mappings:
+  product.id:
+    - product_id
+
+  product.brand:
+    - brand
+
+  product.model:
+    - model
+
+  product.year:
+    - meta.launch_date
+
+  product.launch_date:
+    - meta.launch_date
+
+  product.size_inch:
+    - display.size_inch
+
+  price.street_rmb:
+    - meta.price_cny
+
+  display.technology:
+    - display.technology
+
+  display.panel_type:
+    - display.panel_type
+
+  display.peak_brightness_nits:
+    - display.peak_brightness_nits
+
+  display.local_dimming_zones:
+    - display.local_dimming_zones
+
+  display.color_gamut_dci_p3:
+    - display.color_gamut_dci_p3_pct
+
+  gaming.hdmi_2_1_ports:
+    - interfaces.hdmi.ports
+
+  gaming.vrr:
+    - gaming_features.vrr
+
+  gaming.allm:
+    - gaming_features.allm
+
+  gaming.input_lag_ms_60hz:
+    - gaming_features.input_lag_4k60hz_ms
+
+  system.storage_gb:
+    - memory.storage_gb
+
+  quality.reflection_specular:
+    - display.anti_reflection.reflectance_pct

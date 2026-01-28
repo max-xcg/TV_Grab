@@ -1,0 +1,18 @@
+product:
+  id: changhong_长虹85d66h
+  brand: changhong
+  model: 长虹85D66H
+  year: 2025
+  launch_date: 2025-06
+  size_inch: 85
+price:
+  street_rmb: 5294
+display:
+  technology: lcd
+  panel_type: hard
+  peak_brightness_nits: 320
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

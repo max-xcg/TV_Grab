@@ -1,0 +1,23 @@
+product:
+  id: hisense_海信85e8q_pro
+  brand: hisense
+  model: 海信85E8Q Pro
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 85
+price:
+  street_rmb: 16259
+display:
+  technology: qd_mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 8500
+  local_dimming_zones: 6120
+  color_gamut_dci_p3: 0.99
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+  input_lag_ms_60hz: 4
+system:
+  storage_gb: 128
+quality:
+  reflection_specular: 0.0128

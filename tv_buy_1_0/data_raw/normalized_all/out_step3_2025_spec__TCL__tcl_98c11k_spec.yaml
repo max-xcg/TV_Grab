@@ -1,0 +1,22 @@
+product:
+  id: tcl_98c11k
+  brand: TCL
+  model: 98C11K
+  year: 2025
+  launch_date: 2025-02
+  size_inch: 98
+price:
+  street_rmb: 21999
+display:
+  technology: qd_mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 3000
+  local_dimming_zones: 2048
+  color_gamut_dci_p3: 0.97
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

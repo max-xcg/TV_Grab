@@ -1,0 +1,20 @@
+product:
+  id: toshiba_东芝85z970qf
+  brand: TOSHIBA
+  model: 东芝85Z970QF
+  year: 2025
+  launch_date: 2025-05
+  size_inch: 85
+price:
+  street_rmb: 27999
+display:
+  technology: mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 6000
+  local_dimming_zones: 5120
+  color_gamut_dci_p3: 0.96
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 128

@@ -1,0 +1,20 @@
+product:
+  id: changhong_长虹98d7h_pro
+  brand: changhong
+  model: 长虹98D7H Pro
+  year: 2025
+  launch_date: 2025-07
+  size_inch: 98
+price:
+  street_rmb: 13999
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 1300
+  local_dimming_zones: 1008
+  color_gamut_dci_p3: 0.93
+gaming:
+  hdmi_2_1_ports: 1
+  allm: true
+system:
+  storage_gb: 128

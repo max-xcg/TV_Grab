@@ -1,0 +1,19 @@
+product:
+  id: skyworth_创维85su7f
+  brand: Skyworth
+  model: 创维85SU7F
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 85
+price:
+  street_rmb: 11999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 500
+  color_gamut_dci_p3: 0.93
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

@@ -1,0 +1,20 @@
+product:
+  id: toshiba_东芝75z500qf
+  brand: TOSHIBA
+  model: 东芝75Z500QF
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 75
+price:
+  street_rmb: 4299
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 400
+  local_dimming_zones: 108
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 128

@@ -1,0 +1,22 @@
+product:
+  id: hisense_海信85u6q_pro
+  brand: hisense
+  model: 海信85U6Q Pro
+  year: 2025
+  launch_date: 2025-11
+  size_inch: 85
+price:
+  street_rmb: 13999
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 2800
+  local_dimming_zones: 1792
+  color_gamut_dci_p3: 0.98
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.026000000000000002

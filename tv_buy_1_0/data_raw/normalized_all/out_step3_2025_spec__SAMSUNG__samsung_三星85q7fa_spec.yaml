@@ -1,0 +1,19 @@
+product:
+  id: samsung_三星85q7fa
+  brand: SAMSUNG
+  model: 三星85Q7FA
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 85
+price:
+  street_rmb: 6690
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 500
+  color_gamut_dci_p3: 0.92
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

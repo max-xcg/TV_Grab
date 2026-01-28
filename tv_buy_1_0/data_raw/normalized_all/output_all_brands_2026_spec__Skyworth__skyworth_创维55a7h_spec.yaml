@@ -1,0 +1,23 @@
+product:
+  id: skyworth_创维55a7h
+  brand: Skyworth
+  model: 创维55A7H
+  year: 2026
+  launch_date: 2026-01
+  size_inch: 55
+price:
+  street_rmb: 4351
+display:
+  technology: qd_mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 3800
+  local_dimming_zones: 576
+  color_gamut_dci_p3: 0.99
+gaming:
+  hdmi_2_1_ports: 1
+  allm: true
+  input_lag_ms_60hz: 4
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.026000000000000002

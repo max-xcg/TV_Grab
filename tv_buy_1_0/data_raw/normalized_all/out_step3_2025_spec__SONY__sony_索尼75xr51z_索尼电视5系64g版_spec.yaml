@@ -1,0 +1,21 @@
+product:
+  id: sony_索尼75xr51z_索尼电视5系64g版
+  brand: SONY
+  model: 索尼75XR51Z（索尼电视5系64G版）
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 75
+price:
+  street_rmb: 10499
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 1100
+  local_dimming_zones: 480
+  color_gamut_dci_p3: 0.92
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+  input_lag_ms_60hz: 4
+system:
+  storage_gb: 64

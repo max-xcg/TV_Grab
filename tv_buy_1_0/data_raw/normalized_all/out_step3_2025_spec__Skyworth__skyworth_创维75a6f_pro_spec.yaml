@@ -1,0 +1,20 @@
+product:
+  id: skyworth_创维75a6f_pro
+  brand: Skyworth
+  model: 创维75A6F PRO+
+  year: 2025
+  launch_date: 2025-09
+  size_inch: 75
+price:
+  street_rmb: 7057
+display:
+  technology: qd_mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 4000
+  local_dimming_zones: 3072
+  color_gamut_dci_p3: 0.99
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

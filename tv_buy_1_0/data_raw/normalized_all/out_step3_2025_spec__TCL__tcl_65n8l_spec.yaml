@@ -1,0 +1,19 @@
+product:
+  id: tcl_65n8l
+  brand: TCL
+  model: 65N8L
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 65
+price:
+  street_rmb: 6999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 300
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

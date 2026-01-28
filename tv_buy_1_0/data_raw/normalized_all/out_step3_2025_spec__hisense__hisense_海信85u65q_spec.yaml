@@ -1,0 +1,22 @@
+product:
+  id: hisense_海信85u65q
+  brand: hisense
+  model: 海信85U65Q
+  year: 2025
+  launch_date: 2025-07
+  size_inch: 85
+price:
+  street_rmb: 11999
+display:
+  technology: mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 1300
+  local_dimming_zones: 384
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 128
+quality:
+  reflection_specular: 0.026000000000000002

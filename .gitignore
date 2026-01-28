@@ -3,13 +3,10 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
 .venv/
 venv/
-.env
-
-# Playwright
-playwright/.cache/
-**/.cache/
+env/
 
 # OS / IDE
 .DS_Store
@@ -17,7 +14,20 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Logs & temp
+# build artifacts
+build/
+dist/
+*.egg-info/
+
+# playwright / logs
 *.log
-tmp/
-temp/
+
+# your outputs (爬虫产物/中间结果一般不进git)
+out_step3_*/
+output_*/
+output_step3_*/
+summaries/   # 如果这是生成物也建议忽略
+data_raw/    # 原始大数据通常不进git（见下面说明）
+
+# local db（如果 tv.sqlite 较大也建议忽略；如果很小且你希望别人一键跑通，可删掉这行）
+# db/tv.sqlite

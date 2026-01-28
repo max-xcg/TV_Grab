@@ -1,0 +1,18 @@
+product:
+  id: changhong_长虹85jd900f_g1
+  brand: changhong
+  model: 长虹85JD900F-G1
+  year: 2025
+  launch_date: 2025-02
+  size_inch: 85
+price:
+  street_rmb: 6999
+display:
+  technology: lcd
+  panel_type: hard
+  peak_brightness_nits: 400
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

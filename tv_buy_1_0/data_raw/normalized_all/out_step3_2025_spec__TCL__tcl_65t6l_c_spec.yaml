@@ -1,0 +1,20 @@
+product:
+  id: tcl_65t6l_c
+  brand: TCL
+  model: 65T6L-C
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 65
+price:
+  street_rmb: 3299
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 1100
+  local_dimming_zones: 242
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

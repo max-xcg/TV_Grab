@@ -1,0 +1,23 @@
+product:
+  id: mi_小米s_pro_65_mini_led_2026
+  brand: mi
+  model: 小米S Pro 65 Mini LED 2026
+  year: 2025
+  launch_date: 2025-09
+  size_inch: 65
+price:
+  street_rmb: 6099
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 5200
+  local_dimming_zones: 1792
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+  input_lag_ms_60hz: 4
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

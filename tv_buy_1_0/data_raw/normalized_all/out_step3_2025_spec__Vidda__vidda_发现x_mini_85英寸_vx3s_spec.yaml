@@ -1,0 +1,22 @@
+product:
+  id: vidda_发现x_mini_85英寸_vx3s
+  brand: Vidda
+  model: 发现X Mini 85英寸（VX3S）
+  year: 2025
+  launch_date: 2025-12
+  size_inch: 85
+price:
+  street_rmb: 7057
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 1300
+  local_dimming_zones: 384
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 128
+quality:
+  reflection_specular: 0.026000000000000002

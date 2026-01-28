@@ -1,0 +1,18 @@
+product:
+  id: tcl_85s12l
+  brand: TCL
+  model: 85S12L
+  year: 2025
+  size_inch: 85
+price:
+  street_rmb: 8999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 500
+  color_gamut_dci_p3: 0.93
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

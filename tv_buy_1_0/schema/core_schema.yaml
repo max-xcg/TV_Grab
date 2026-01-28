@@ -1,0 +1,67 @@
+version: 1
+mappings:
+  # ===== product =====
+  product.id:
+    - product_id
+
+  product.brand:
+    - brand
+
+  product.model:
+    - model
+
+  product.year:
+    - meta.launch_date   # 这里是 YYYY-MM，我们会在 normalize 里截取年份
+
+  product.launch_date:
+    - meta.launch_date   # 保留原始 YYYY-MM，用于“每品牌最新款”判断与展示
+
+  product.size_inch:
+    - display.size_inch
+
+  # ===== price =====
+  price.street_rmb:
+    - meta.price_cny
+
+  # ===== display =====
+  display.technology:
+    - display.technology
+
+  display.panel_type:
+    - display.panel_type
+
+  display.peak_brightness_nits:
+    - display.peak_brightness_nits
+
+  display.local_dimming_zones:
+    - display.local_dimming_zones
+
+  display.color_gamut_dci_p3:
+    - display.color_gamut_dci_p3_pct  # 百分比，需要转成 0~1
+
+  # ===== gaming =====
+  gaming.hdmi_2_1_ports:
+    - interfaces.hdmi.ports
+
+  gaming.vrr:
+    - gaming_features.vrr
+
+  gaming.allm:
+    - gaming_features.allm
+
+  gaming.input_lag_ms_60hz:
+    - gaming_features.input_lag_4k60hz_ms
+
+  # ===== system =====
+  system.os:
+    - system.os          # 你这个样本里没有，会为空没关系
+
+  system.storage_gb:
+    - memory.storage_gb
+
+  # ===== quality (样本暂缺，先留空也 OK) =====
+  quality.reflection_specular:
+    - display.anti_reflection.reflectance_pct
+
+  quality.uniformity_gray50_max_dev:
+    - quality.uniformity_gray50_max_dev

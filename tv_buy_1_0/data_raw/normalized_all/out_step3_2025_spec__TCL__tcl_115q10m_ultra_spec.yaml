@@ -1,0 +1,20 @@
+product:
+  id: tcl_115q10m_ultra
+  brand: TCL
+  model: 115Q10M Ultra
+  year: 2025
+  launch_date: 2025-09
+  size_inch: 115
+price:
+  street_rmb: 97999
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 9000
+  local_dimming_zones: 5616
+  color_gamut_dci_p3: 0.99
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 128

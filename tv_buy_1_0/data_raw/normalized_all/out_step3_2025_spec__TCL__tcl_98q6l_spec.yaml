@@ -1,0 +1,21 @@
+product:
+  id: tcl_98q6l
+  brand: TCL
+  model: 98Q6L
+  year: 2025
+  launch_date: 2025-10
+  size_inch: 98
+price:
+  street_rmb: 13999
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 1300
+  local_dimming_zones: 512
+  color_gamut_dci_p3: 0.93
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+  input_lag_ms_60hz: 4
+system:
+  storage_gb: 128

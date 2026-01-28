@@ -1,0 +1,20 @@
+product:
+  id: haier_海尔_75h6c_pro
+  brand: Haier
+  model: 海尔 75H6C PRO
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 75
+price:
+  street_rmb: 4469
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 1000
+  local_dimming_zones: 300
+  color_gamut_dci_p3: 0.93
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

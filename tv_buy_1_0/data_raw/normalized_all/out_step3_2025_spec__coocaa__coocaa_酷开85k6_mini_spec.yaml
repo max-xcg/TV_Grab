@@ -1,0 +1,20 @@
+product:
+  id: coocaa_酷开85k6_mini
+  brand: coocaa
+  model: 酷开85K6 Mini
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 85
+price:
+  street_rmb: 4399
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 800
+  local_dimming_zones: 144
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

@@ -1,0 +1,23 @@
+product:
+  id: mi_小米s_pro_98_mini_led_2026款
+  brand: mi
+  model: 小米S Pro 98 Mini LED 2026款
+  year: 2025
+  launch_date: 2025-09
+  size_inch: 98
+price:
+  street_rmb: 14999
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 5700
+  local_dimming_zones: 3864
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+  input_lag_ms_60hz: 4
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

@@ -1,0 +1,18 @@
+product:
+  id: philips_飞利浦7590系列_65英寸
+  brand: PHILIPS
+  model: 飞利浦7590系列 65英寸
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 65
+price:
+  street_rmb: 2538
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 300
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 32

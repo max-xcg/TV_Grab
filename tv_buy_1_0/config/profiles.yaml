@@ -1,0 +1,100 @@
+version: 1
+
+# 说明：
+# - weights: 各指标权重（会自动归一化/不强制，但建议总和≈1）
+# - negative_metrics: 反向指标（越小越好）
+# - boolean_metrics: 布尔指标（true=1 false=0）
+# - penalties: 异常口径惩罚（满足条件则乘以 multiplier）
+#   用于避免“8000nits 这类极端口径”把榜单拉爆，但不直接剔除
+
+profiles:
+  bright:
+    desc: "明亮客厅综合（白天观看优先）"
+    weights:
+      peak_brightness_nits: 0.33
+      street_rmb: 0.28
+      reflection_specular: 0.16
+      local_dimming_zones: 0.14
+      color_gamut_dci_p3: 0.05
+      uniformity_gray50_max_dev: 0.04
+    negative_metrics:
+      - street_rmb
+      - reflection_specular
+      - uniformity_gray50_max_dev
+    boolean_metrics: []
+    penalties:
+      - name: "brightness_over_6000"
+        metric: peak_brightness_nits
+        op: ">"
+        value: 6000
+        multiplier: 0.88
+      - name: "zones_over_6000"
+        metric: local_dimming_zones
+        op: ">"
+        value: 6000
+        multiplier: 0.95
+      - name: "missing_reflection"
+        metric: reflection_specular
+        op: "is_null"
+        multiplier: 0.92
+      - name: "missing_zones"
+        metric: local_dimming_zones
+        op: "is_null"
+        multiplier: 0.92
+
+
+  movie:
+    desc: "电影为主（暗场/光晕控制优先）"
+    weights:
+      local_dimming_zones: 0.30
+      peak_brightness_nits: 0.20
+      street_rmb: 0.22
+      uniformity_gray50_max_dev: 0.10
+      reflection_specular: 0.08
+      color_gamut_dci_p3: 0.10
+    negative_metrics:
+      - street_rmb
+      - reflection_specular
+      - uniformity_gray50_max_dev
+    boolean_metrics: []
+    penalties:
+      - name: "brightness_over_6000"
+        metric: peak_brightness_nits
+        op: ">"
+        value: 6000
+        multiplier: 0.92
+      - name: "missing_zones"
+        metric: local_dimming_zones
+        op: "is_null"
+        multiplier: 0.90
+
+
+  ps5:
+    desc: "PS5/XSX/PC 游戏（低延迟/满血接口优先）"
+    weights:
+      input_lag_ms_60hz: 0.30
+      hdmi_2_1_ports: 0.22
+      vrr: 0.14
+      allm: 0.08
+      peak_brightness_nits: 0.10
+      local_dimming_zones: 0.06
+      street_rmb: 0.10
+    negative_metrics:
+      - input_lag_ms_60hz
+      - street_rmb
+    boolean_metrics:
+      - vrr
+      - allm
+    penalties:
+      - name: "missing_input_lag"
+        metric: input_lag_ms_60hz
+        op: "is_null"
+        multiplier: 0.75
+      - name: "missing_vrr"
+        metric: vrr
+        op: "is_null"
+        multiplier: 0.85
+      - name: "missing_allm"
+        metric: allm
+        op: "is_null"
+        multiplier: 0.92

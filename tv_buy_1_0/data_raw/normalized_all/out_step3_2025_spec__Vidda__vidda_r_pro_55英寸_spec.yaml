@@ -1,0 +1,18 @@
+product:
+  id: vidda_r_pro_55英寸
+  brand: Vidda
+  model: R Pro 55英寸
+  year: 2025
+  launch_date: 2025-10
+  size_inch: 55
+price:
+  street_rmb: 2124
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 300
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

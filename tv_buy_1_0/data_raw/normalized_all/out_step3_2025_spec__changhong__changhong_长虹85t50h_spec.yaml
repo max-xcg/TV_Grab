@@ -1,0 +1,18 @@
+product:
+  id: changhong_长虹85t50h
+  brand: changhong
+  model: 长虹85T50H
+  year: 2025
+  launch_date: 2025-05
+  size_inch: 85
+price:
+  street_rmb: 9999
+display:
+  technology: lcd
+  panel_type: hard
+  peak_brightness_nits: 500
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

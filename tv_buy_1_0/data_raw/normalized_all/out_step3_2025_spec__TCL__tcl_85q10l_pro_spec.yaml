@@ -1,0 +1,23 @@
+product:
+  id: tcl_85q10l_pro
+  brand: TCL
+  model: 85Q10L Pro
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 85
+price:
+  street_rmb: 17499
+display:
+  technology: qd_mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 7000
+  local_dimming_zones: 5184
+  color_gamut_dci_p3: 0.98
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+  input_lag_ms_60hz: 4
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

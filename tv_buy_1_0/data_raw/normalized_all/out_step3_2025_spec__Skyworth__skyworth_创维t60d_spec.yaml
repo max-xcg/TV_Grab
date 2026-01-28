@@ -1,0 +1,18 @@
+product:
+  id: skyworth_创维t60d
+  brand: Skyworth
+  model: 创维T60D
+  year: 2025
+  launch_date: 2025-05
+  size_inch: 60
+price:
+  street_rmb: 2186
+display:
+  technology: lcd
+  panel_type: hard
+  peak_brightness_nits: 400
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 32

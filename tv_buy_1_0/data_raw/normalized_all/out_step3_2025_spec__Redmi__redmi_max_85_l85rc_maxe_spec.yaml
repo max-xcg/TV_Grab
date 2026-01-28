@@ -1,0 +1,18 @@
+product:
+  id: redmi_max_85_l85rc_maxe
+  brand: Redmi
+  model: MAX 85（L85RC-MAXE）
+  year: 2025
+  launch_date: 2025-02
+  size_inch: 85
+price:
+  street_rmb: 5411
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 400
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

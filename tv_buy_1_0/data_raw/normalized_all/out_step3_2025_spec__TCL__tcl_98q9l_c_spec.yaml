@@ -1,0 +1,20 @@
+product:
+  id: tcl_98q9l_c
+  brand: TCL
+  model: 98Q9L-C
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 98
+price:
+  street_rmb: 11699
+display:
+  technology: qd_mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 3000
+  local_dimming_zones: 2048
+  color_gamut_dci_p3: 0.98
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 128

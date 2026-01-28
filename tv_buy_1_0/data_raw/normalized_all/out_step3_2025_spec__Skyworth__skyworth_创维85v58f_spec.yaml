@@ -1,0 +1,18 @@
+product:
+  id: skyworth_创维85v58f
+  brand: Skyworth
+  model: 创维85V58F
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 85
+price:
+  street_rmb: 5999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 500
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

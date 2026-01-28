@@ -1,0 +1,20 @@
+product:
+  id: konka_康佳85g9w
+  brand: KONKA
+  model: 康佳85G9W
+  year: 2025
+  launch_date: 2025-10
+  size_inch: 85
+price:
+  street_rmb: 6749
+display:
+  technology: mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 1200
+  local_dimming_zones: 648
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

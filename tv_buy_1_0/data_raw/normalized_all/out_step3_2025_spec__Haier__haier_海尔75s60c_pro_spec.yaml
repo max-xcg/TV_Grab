@@ -1,0 +1,19 @@
+product:
+  id: haier_海尔75s60c_pro
+  brand: Haier
+  model: 海尔75S60C PRO
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 75
+price:
+  street_rmb: 3499
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 400
+  color_gamut_dci_p3: 0.9
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

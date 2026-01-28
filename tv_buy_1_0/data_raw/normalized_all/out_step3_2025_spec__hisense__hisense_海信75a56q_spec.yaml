@@ -1,0 +1,19 @@
+product:
+  id: hisense_海信75a56q
+  brand: hisense
+  model: 海信75A56Q
+  year: 2025
+  launch_date: 2025-07
+  size_inch: 75
+price:
+  street_rmb: 6399
+display:
+  technology: lcd
+  panel_type: hard
+  peak_brightness_nits: 400
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 1
+  allm: true
+system:
+  storage_gb: 64

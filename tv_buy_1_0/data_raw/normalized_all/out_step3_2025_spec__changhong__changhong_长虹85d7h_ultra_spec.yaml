@@ -1,0 +1,20 @@
+product:
+  id: changhong_长虹85d7h_ultra
+  brand: changhong
+  model: 长虹85D7H Ultra
+  year: 2025
+  launch_date: 2025-08
+  size_inch: 85
+price:
+  street_rmb: 7646
+display:
+  technology: mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 3000
+  local_dimming_zones: 1120
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

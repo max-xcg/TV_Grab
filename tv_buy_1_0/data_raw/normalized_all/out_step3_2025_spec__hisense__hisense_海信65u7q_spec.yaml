@@ -1,0 +1,22 @@
+product:
+  id: hisense_海信65u7q
+  brand: hisense
+  model: 海信65U7Q
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 65
+price:
+  street_rmb: 9999
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 2700
+  local_dimming_zones: 1056
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

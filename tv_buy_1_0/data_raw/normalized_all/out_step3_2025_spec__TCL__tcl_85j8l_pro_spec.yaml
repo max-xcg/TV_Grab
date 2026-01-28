@@ -1,0 +1,20 @@
+product:
+  id: tcl_85j8l_pro
+  brand: TCL
+  model: 85J8L Pro
+  year: 2025
+  launch_date: 2025-08
+  size_inch: 85
+price:
+  street_rmb: 9999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 500
+  local_dimming_zones: 112
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

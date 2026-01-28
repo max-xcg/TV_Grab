@@ -1,0 +1,22 @@
+product:
+  id: hisense_海信85d80qd
+  brand: hisense
+  model: 海信85D80QD
+  year: 2025
+  launch_date: 2025-07
+  size_inch: 85
+price:
+  street_rmb: 13499
+display:
+  technology: qd_mini_led_lcd
+  panel_type: hard
+  peak_brightness_nits: 2200
+  local_dimming_zones: 1280
+  color_gamut_dci_p3: 0.98
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.026000000000000002

@@ -1,0 +1,22 @@
+product:
+  id: mi_小米电视s75_mini_led_2025
+  brand: mi
+  model: 小米电视S75 Mini LED 2025
+  year: 2025
+  launch_date: 2025-05
+  size_inch: 75
+price:
+  street_rmb: 5542
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 1700
+  local_dimming_zones: 704
+  color_gamut_dci_p3: 0.94
+gaming:
+  hdmi_2_1_ports: 1
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

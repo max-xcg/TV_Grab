@@ -1,0 +1,22 @@
+product:
+  id: skyworth_创维65g5h
+  brand: Skyworth
+  model: 创维65G5H
+  year: 2025
+  launch_date: 2025-10
+  size_inch: 65
+price:
+  street_rmb: 5699
+display:
+  technology: lcd
+  panel_type: hard
+  peak_brightness_nits: 800
+  local_dimming_zones: 120
+  color_gamut_dci_p3: 0.93
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.026000000000000002

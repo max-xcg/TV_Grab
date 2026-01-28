@@ -1,0 +1,18 @@
+product:
+  id: changhong_长虹65z60h
+  brand: changhong
+  model: 长虹65Z60H
+  year: 2025
+  launch_date: 2025-06
+  size_inch: 65
+price:
+  street_rmb: 2470
+display:
+  technology: lcd
+  panel_type: hard
+  peak_brightness_nits: 300
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 32

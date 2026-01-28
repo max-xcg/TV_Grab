@@ -1,0 +1,18 @@
+product:
+  id: skyworth_创维55h5f_pro
+  brand: Skyworth
+  model: 创维55H5F Pro
+  year: 2025
+  launch_date: 2025-05
+  size_inch: 55
+price:
+  street_rmb: 2999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 300
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

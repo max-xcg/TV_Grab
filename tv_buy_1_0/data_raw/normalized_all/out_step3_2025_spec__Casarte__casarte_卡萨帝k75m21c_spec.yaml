@@ -1,0 +1,20 @@
+product:
+  id: casarte_卡萨帝k75m21c
+  brand: Casarte
+  model: 卡萨帝K75M21C
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 75
+price:
+  street_rmb: 9999
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 1400
+  local_dimming_zones: 576
+  color_gamut_dci_p3: 0.94
+gaming:
+  hdmi_2_1_ports: 1
+  allm: true
+system:
+  storage_gb: 128

@@ -1,0 +1,19 @@
+product:
+  id: sony_索尼电视3系50英寸
+  brand: SONY
+  model: 索尼电视3系50英寸
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 50
+price:
+  street_rmb: 4598
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 500
+  color_gamut_dci_p3: 0.92
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 32

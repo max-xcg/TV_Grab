@@ -1,0 +1,22 @@
+product:
+  id: tcl_75t7l
+  brand: TCL
+  model: 75T7L
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 75
+price:
+  street_rmb: 5299
+display:
+  technology: qd_mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 3000
+  local_dimming_zones: 1248
+  color_gamut_dci_p3: 0.98
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

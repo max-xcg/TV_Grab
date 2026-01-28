@@ -1,0 +1,19 @@
+product:
+  id: panasonic_松下th_65px680cp
+  brand: Panasonic
+  model: 松下TH-65PX680CP
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 65
+price:
+  street_rmb: 5999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 350
+  color_gamut_dci_p3: 0.9
+gaming:
+  hdmi_2_1_ports: 1
+  allm: true
+system:
+  storage_gb: 64

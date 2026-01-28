@@ -1,0 +1,19 @@
+product:
+  id: hisense_海信55a6q
+  brand: hisense
+  model: 海信55A6Q
+  year: 2025
+  launch_date: 2025-06
+  size_inch: 55
+price:
+  street_rmb: 4999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 350
+  local_dimming_zones: 48
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

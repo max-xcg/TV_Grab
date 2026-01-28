@@ -1,0 +1,16 @@
+product:
+  id: tcl_55v69h
+  brand: TCL
+  model: 55V69H
+  year: 2025
+  launch_date: 2025-11
+  size_inch: 55
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 300
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 32

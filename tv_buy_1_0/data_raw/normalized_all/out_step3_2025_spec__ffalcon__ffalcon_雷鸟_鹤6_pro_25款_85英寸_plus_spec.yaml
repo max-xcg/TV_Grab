@@ -1,0 +1,20 @@
+product:
+  id: ffalcon_雷鸟_鹤6_pro_25款_85英寸_plus
+  brand: ffalcon
+  model: 雷鸟 鹤6 PRO 25款 85英寸（PLUS）
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 85
+price:
+  street_rmb: 7356
+display:
+  technology: mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 2000
+  local_dimming_zones: 1040
+  color_gamut_dci_p3: 0.93
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 64

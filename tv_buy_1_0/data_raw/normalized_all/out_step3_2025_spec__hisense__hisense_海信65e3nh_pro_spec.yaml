@@ -1,0 +1,19 @@
+product:
+  id: hisense_海信65e3nh_pro
+  brand: hisense
+  model: 海信65E3NH Pro
+  year: 2025
+  launch_date: 2025-04
+  size_inch: 65
+price:
+  street_rmb: 3293
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 250
+  color_gamut_dci_p3: 0.96
+gaming:
+  hdmi_2_1_ports: 1
+  allm: true
+system:
+  storage_gb: 64

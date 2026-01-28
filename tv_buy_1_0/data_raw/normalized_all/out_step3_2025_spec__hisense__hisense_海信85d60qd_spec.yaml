@@ -1,0 +1,19 @@
+product:
+  id: hisense_海信85d60qd
+  brand: hisense
+  model: 海信85D60QD
+  year: 2025
+  launch_date: 2025-06
+  size_inch: 85
+price:
+  street_rmb: 8299
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 400
+  color_gamut_dci_p3: 0.95
+gaming:
+  hdmi_2_1_ports: 1
+  allm: true
+system:
+  storage_gb: 64

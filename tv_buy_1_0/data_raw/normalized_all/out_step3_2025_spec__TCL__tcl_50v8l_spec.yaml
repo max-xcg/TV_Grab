@@ -1,0 +1,18 @@
+product:
+  id: tcl_50v8l
+  brand: TCL
+  model: 50V8L
+  year: 2025
+  launch_date: 2025-02
+  size_inch: 50
+price:
+  street_rmb: 1599
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 250
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 32

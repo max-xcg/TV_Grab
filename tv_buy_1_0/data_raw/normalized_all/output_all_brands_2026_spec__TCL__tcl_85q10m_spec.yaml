@@ -1,0 +1,22 @@
+product:
+  id: tcl_85q10m
+  brand: TCL
+  model: 85Q10M
+  year: 2026
+  launch_date: 2026-01
+  size_inch: 85
+price:
+  street_rmb: 15999
+display:
+  technology: qd_mini_led_lcd
+  panel_type: soft
+  peak_brightness_nits: 8500
+  local_dimming_zones: 5832
+  color_gamut_dci_p3: 1.0
+gaming:
+  hdmi_2_1_ports: 4
+  allm: true
+system:
+  storage_gb: 64
+quality:
+  reflection_specular: 0.018000000000000002

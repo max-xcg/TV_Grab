@@ -1,0 +1,19 @@
+product:
+  id: samsung_三星55du8000c
+  brand: SAMSUNG
+  model: 三星55DU8000C
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 55
+price:
+  street_rmb: 3899
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 300
+  color_gamut_dci_p3: 0.9
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 32

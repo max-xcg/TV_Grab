@@ -1,0 +1,19 @@
+product:
+  id: hisense_海信65a51sh
+  brand: hisense
+  model: 海信65A51SH
+  year: 2025
+  launch_date: 2025-09
+  size_inch: 65
+price:
+  street_rmb: 4599
+display:
+  technology: lcd
+  panel_type: hard
+  peak_brightness_nits: 300
+  color_gamut_dci_p3: 0.98
+gaming:
+  hdmi_2_1_ports: 2
+  allm: true
+system:
+  storage_gb: 64

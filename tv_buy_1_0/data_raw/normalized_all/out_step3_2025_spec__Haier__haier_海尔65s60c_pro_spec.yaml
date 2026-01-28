@@ -1,0 +1,19 @@
+product:
+  id: haier_海尔65s60c_pro
+  brand: Haier
+  model: 海尔65S60C PRO
+  year: 2025
+  launch_date: 2025-01
+  size_inch: 65
+price:
+  street_rmb: 2599
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 300
+  color_gamut_dci_p3: 0.9
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

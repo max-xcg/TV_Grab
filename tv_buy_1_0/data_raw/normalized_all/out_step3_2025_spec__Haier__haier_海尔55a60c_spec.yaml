@@ -1,0 +1,19 @@
+product:
+  id: haier_海尔55a60c
+  brand: Haier
+  model: 海尔55A60C
+  year: 2025
+  launch_date: 2025-03
+  size_inch: 55
+price:
+  street_rmb: 2999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 300
+  color_gamut_dci_p3: 0.9
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 64

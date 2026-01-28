@@ -1,0 +1,19 @@
+product:
+  id: samsung_三星85u8000f
+  brand: SAMSUNG
+  model: 三星85U8000F
+  year: 2025
+  launch_date: 2025-05
+  size_inch: 85
+price:
+  street_rmb: 7999
+display:
+  technology: lcd
+  panel_type: soft
+  peak_brightness_nits: 500
+  color_gamut_dci_p3: 0.9
+gaming:
+  hdmi_2_1_ports: 3
+  allm: true
+system:
+  storage_gb: 32
