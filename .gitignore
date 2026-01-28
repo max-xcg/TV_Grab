@@ -3,31 +3,30 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# venv
 .venv/
 venv/
-env/
 
-# OS / IDE
+# OS
 .DS_Store
 Thumbs.db
+
+# IDE
 .vscode/
 .idea/
 
-# build artifacts
-build/
-dist/
-*.egg-info/
-
-# playwright / logs
+# logs
 *.log
 
-# your outputs (爬虫产物/中间结果一般不进git)
-out_step3_*/
-output_*/
-output_step3_*/
-summaries/   # 如果这是生成物也建议忽略
-data_raw/    # 原始大数据通常不进git（见下面说明）
+# local data (你自己决定是否要忽略 db)
+db/*.sqlite
+db/*.db
+*.sqlite
+*.db
 
-# local db（如果 tv.sqlite 较大也建议忽略；如果很小且你希望别人一键跑通，可删掉这行）
-# db/tv.sqlite
+# misc
+.cache/
