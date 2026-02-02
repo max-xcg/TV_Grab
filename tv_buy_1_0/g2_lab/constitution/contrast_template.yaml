@@ -1,0 +1,54 @@
+contrast_test_record:
+  meta:
+    test_date: null              # 提取自图片 Meta 信息，无则 null
+    device_id: null              # 提取自图片设备名，无则 null
+    inspector: null              # 提取自图片人员名，无则 null
+    standard_version: null       # 提取自图片标准号，无则 null
+
+    test_environment:
+      ambient_light_lux: "<1 lux" # 默认预设
+      room_temperature_c: 23      # 默认预设
+
+    instrument:
+      meter_model: "CA-410"       # 默认预设
+      meter_distance_mm: 30       # 默认预设
+
+  measurements:
+    native_contrast:
+      mode: "Local Dimming OFF"
+      calibration_target_nits: "100 nits"
+      black_luminance_cd_m2: []   # 列表
+      white_luminance_cd_m2: []   # 列表
+      white_avg_nits: null
+      black_avg_nits: null
+
+    effective_contrast:
+      mode: "Local Dimming High / Auto"
+      calibration_target_nits: "100 nits"
+      black_luminance_cd_m2: []   # 列表
+      white_luminance_cd_m2: []   # 列表
+      white_avg_nits: null
+      black_avg_nits: null
+      brightness_note: null
+
+  computed_metrics:
+    native_contrast_ratio:
+      value: null
+      formula: "white_avg_nits / black_avg_nits"
+      source_fields:
+        - measurements.native_contrast.white_avg_nits
+        - measurements.native_contrast.black_avg_nits
+
+    effective_contrast_ratio:
+      value: null
+      formula: "white_avg_nits / black_avg_nits"
+      source_fields:
+        - measurements.effective_contrast.white_avg_nits
+        - measurements.effective_contrast.black_avg_nits
+
+    dimming_gain:
+      value: null
+      formula: "effective_contrast_ratio / native_contrast_ratio"
+
+  extraction_notes:
+    uncertainties: []

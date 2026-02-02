@@ -6,7 +6,18 @@ from typing import Any, Dict, List, Tuple, Optional
 import yaml
 from datetime import datetime
 import sys, io, re
-from tv_buy_1_0.reasons_v2 import reasons_ps5_v2, top1_summary_ps5
+from tv_buy_1_0.reasons_v2 import (
+    reasons_ps5_v2,
+    reasons_movie_v2,
+    reasons_bright_v2,
+    top1_summary_ps5,
+    top1_summary_movie,
+    top1_summary_bright,
+)
+
+from tv_buy_1_0.config.settings import ENABLE_LLM
+from tv_buy_1_0.llm.enhance import enhance_with_llm
+
 
 
 
@@ -427,17 +438,44 @@ def recommend_text(
         lines.append(f"{i}. {title} | 首发 {tv.get('launch_date')} | ￥{fmt(tv.get('street_rmb'))}{warn}")
         if scene == "ps5":
             rs, not_fit = reasons_ps5_v2(tv)
+        elif scene == "movie":
+            rs, not_fit = reasons_movie_v2(tv)
+        elif scene == "bright":
+            rs, not_fit = reasons_bright_v2(tv)
         else:
-            rs, not_fit = reasons(tv, scene)  # 其它场景先不动
+            rs, not_fit = reasons(tv, scene)
+        # 其它场景先不动
         for line in rs:
             lines.append(f"   - {line}")
         lines.append(f"   - 不适合：{not_fit}")
         lines.append("")
 
     lines.append("一句话结论：")
-    lines.append(top1_summary_ps5(top3[0]))
+    if scene == "ps5":
+        lines.append(top1_summary_ps5(top3[0]))
+    elif scene == "movie":
+        lines.append(top1_summary_movie(top3[0]))
+    elif scene == "bright":
+        lines.append(top1_summary_bright(top3[0]))
+    else:
+        lines.append(top1_summary_ps5(top3[0]))
 
-    return "\n".join(lines)
+    base_text = "\n".join(lines)
+
+    if ENABLE_LLM:
+        try:
+            llm_text = enhance_with_llm(
+                top3=top3,
+                size=size,
+                scene=scene,
+                budget=budget,
+            )
+            return base_text + "\n\n———\n\n🤖 AI 增强解读：\n" + llm_text
+        except Exception as e:
+            return base_text + f"\n\n⚠️ LLM 增强失败，已回退规则引擎结果：{e}"
+
+    return base_text
+
 
 # =========================
 # CLI entry

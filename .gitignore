@@ -1,32 +1,47 @@
-# Python
+# ===== Python =====
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*.so
 *.egg-info/
 dist/
 build/
-
-# venv
 .venv/
 venv/
+env/
 
-# OS
+# ===== IDE / OS =====
+.vscode/
+.idea/
+*.iml
 .DS_Store
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
-
-# logs
+# ===== Logs =====
 *.log
 
-# local data (你自己决定是否要忽略 db)
-db/*.sqlite
-db/*.db
-*.sqlite
-*.db
+# ===== Secrets =====
+.env
+.env.*
+*.key
+*.pem
 
-# misc
-.cache/
+# ===== Data / outputs / caches =====
+output*/
+out*/
+*_output*/
+*_errors*/
+data_raw/
+tv_buy_1_0/data_raw/
+summaries/
+tv_buy_1_0/summaries/
+tv_buy_1_0/data_raw/uploads/
+
+# ===== Images / debug artifacts =====
+native.png
+effective.png
+tv_buy_1_0/native.png
+tv_buy_1_0/effective.png
+
+# ===== Playwright =====
+.playwright/
+playwright-report/
