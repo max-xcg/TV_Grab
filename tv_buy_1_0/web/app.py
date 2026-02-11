@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import os
+import json
 import re
+import time
 from uuid import uuid4
 from pathlib import Path
 from datetime import datetime
@@ -14,6 +15,9 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from tv_buy_1_0.run_reco import recommend_text, list_candidates, format_candidates
+
+# tools 路由
+from tv_buy_1_0.tools.tool_api import router as tools_router
 
 # 你已有的报告路由（/api/report/contrast）
 from tv_buy_1_0.g2_lab.api.router_report_contrast import router as g2_report_router
@@ -35,6 +39,7 @@ TVBUY_ROOT = Path(__file__).resolve().parents[1]  # => tv_buy_1_0/
 # =========================================================
 app = FastAPI()
 app.include_router(g2_report_router)
+app.include_router(tools_router)
 
 templates = Jinja2Templates(directory=str(TVBUY_ROOT / "web" / "templates"))
 
@@ -50,6 +55,33 @@ CONTRAST_OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 CONTRAST_ANALYSIS_DIR = TVBUY_ROOT / "summaries" / "contrast_analysis"
 CONTRAST_ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# =========================================================
+# Body Helpers (兼容 Git Bash curl 中文 JSON)
+# =========================================================
+async def _read_json_body(request: Request) -> Dict[str, Any]:
+    """
+    兼容 Windows Git Bash curl 可能发来的 GBK/CP936 编码 JSON
+    优先 utf-8，失败回退 gbk/cp936
+    """
+    raw = await request.body()
+    last_err: Optional[Exception] = None
+    for enc in ("utf-8", "utf-8-sig", "gb18030", "gbk", "cp936"):
+        try:
+            s = raw.decode(enc)
+            return json.loads(s)
+        except Exception as e:
+            last_err = e
+    raise ValueError(f"Bad JSON body (decode failed): {last_err}")
+
+
+def _json_ok(reply: str, raw: Optional[Dict[str, Any]] = None) -> JSONResponse:
+    return JSONResponse(content={"ok": True, "reply": reply, "raw": raw or {}})
+
+
+def _json_err(msg: str, status_code: int = 400, raw: Optional[Dict[str, Any]] = None) -> JSONResponse:
+    return JSONResponse(status_code=status_code, content={"ok": False, "error": msg, "raw": raw or {}})
 
 
 # =========================================================
@@ -168,13 +200,6 @@ class ContrastReportReq(BaseModel):
 def api_g2_contrast_report(req: ContrastReportReq):
     """
     ✅ 一键：两张对比度截图 -> OCR YAML -> LLM 评测结论
-    返回：
-      - yaml: OCR生成的yaml文本
-      - analysis: 工程分析文字（阶段一）
-      - editorial_verdict_yaml: 结构化观点（阶段二）
-    并落盘：
-      - summaries/contrast_records/*.yaml
-      - summaries/contrast_analysis/*.txt
     """
     try:
         native_path = _find_uploaded_image(req.native_image_id)
@@ -259,13 +284,30 @@ def parse_slots(text: str) -> Dict[str, Any]:
         return {"_reset": True}
 
     size = None
-    m = re.search(r"(\d{2,3})\s*(寸|英寸)", t)
+
+    # 1) 明确带单位：75寸 / 75英寸 / 75"
+    m = re.search(r"(\d{2,3})\s*(寸|英寸|吋|inch|in|\")", t)
     if m:
-        size = int(m.group(1))
+        v = int(m.group(1))
+        if 40 <= v <= 120:
+            size = v
     else:
-        m2 = re.fullmatch(r"\s*(\d{2,3})\s*", t)
-        if m2:
-            size = int(m2.group(1))
+        # 2) 句子里出现“尺寸/英寸/多大”等语义时，允许抓一个裸数字
+        if any(k in t for k in ["尺寸", "英寸", "多大", "多大屏", "大屏", "inch", "in"]):
+            m3 = re.search(r"\b(\d{2,3})\b", t)
+            if m3:
+                v = int(m3.group(1))
+                if 40 <= v <= 120:
+                    size = v
+
+        # 3) 兜底：从整句抓“第一个合理尺寸数字”（避免把预算 13000 当尺寸）
+        if size is None:
+            nums = re.findall(r"\b(\d{2,3})\b", t)
+            for s in nums:
+                v = int(s)
+                if 40 <= v <= 120:
+                    size = v
+                    break
 
     budget = None
     mb = re.search(r"预算\s*(\d{3,6})", t)
@@ -310,9 +352,18 @@ def parse_slots(text: str) -> Dict[str, Any]:
         b = mbrand.group(2).strip()
         brand = "TCL" if b.lower() == "tcl" else b
 
-    return {"size": size, "scene": scene, "budget": budget, "brand": brand}
+    # ✅ 额外：不限品牌（dialog 里会用到 brand_any=True）
+    brand_any = False
+    if any(k in t for k in ["不限品牌", "品牌不限", "不限定品牌", "不挑品牌", "随便什么牌子", "随便", "都行", "不限"]):
+        brand_any = True
+        brand = None
+
+    return {"size": size, "scene": scene, "budget": budget, "brand": brand, "brand_any": brand_any}
 
 
+# =========================================================
+# TV Buy 1.0 原有 /api/chat 的追问逻辑（保留不动）
+# =========================================================
 def next_question(state: Dict[str, Any]) -> Optional[str]:
     if state.get("size") is None:
         return "你想要多大尺寸？比如：65 / 75 / 85（直接回“75寸”也行）"
@@ -321,9 +372,6 @@ def next_question(state: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-# =========================================================
-# Chat API (TV Buy 1.0)
-# =========================================================
 class ChatReq(BaseModel):
     text: str
     state: Optional[Dict[str, Any]] = None
@@ -379,7 +427,6 @@ def chat(req: ChatReq):
 
         if base.get("scene") is not None:
             reply_parts.append("")
-            # ✅ 这里 recommend_text 内部才决定是否调用 LLM（你要去 run_reco.py 打开 ENABLE_LLM）
             reply_parts.append(
                 recommend_text(
                     size=int(base["size"]),
@@ -399,6 +446,428 @@ def chat(req: ChatReq):
 
     reply = header + "\n\n".join(reply_parts)
     return ChatResp(state=base, reply=reply)
+
+
+# =========================================================
+# ✅ Dialog 3p2（Clawdbot 调用）
+# =========================================================
+_SESS: Dict[str, Dict[str, Any]] = {}
+_SESS_TTL_SEC = 60 * 60 * 24  # 24h
+
+
+def _now_ts() -> int:
+    return int(time.time())
+
+
+def _gc_sessions() -> None:
+    if len(_SESS) < 2000:
+        return
+    ts = _now_ts()
+    dead = []
+    for sid, pack in _SESS.items():
+        if ts - int(pack.get("_ts", ts)) > _SESS_TTL_SEC:
+            dead.append(sid)
+    for sid in dead:
+        _SESS.pop(sid, None)
+
+
+def _get_session(session_id: Optional[str]) -> Tuple[str, Dict[str, Any]]:
+    _gc_sessions()
+    sid = session_id or uuid4().hex
+    pack = _SESS.get(sid)
+    if not pack:
+        pack = {
+            "state": {"size": None, "budget": None, "scene": None, "brand": None, "brand_any": False},
+            "_ts": _now_ts(),
+            "last_reply_full": None,
+            "last_reply_short": None,
+            "last_structured": None,
+            "last_state": None,  # ✅ 缓存上一轮完整 state（用于“更多”复用）
+        }
+        _SESS[sid] = pack
+    pack["_ts"] = _now_ts()
+    return sid, pack
+
+
+def _normalize_state(state: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not isinstance(state, dict):
+        return {"size": None, "budget": None, "scene": None, "brand": None, "brand_any": False}
+    return {
+        "size": state.get("size"),
+        "budget": state.get("budget"),
+        "scene": state.get("scene"),
+        "brand": state.get("brand"),
+        "brand_any": bool(state.get("brand_any", False)),
+    }
+
+
+def _merge_state(base: Dict[str, Any], slots: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(base)
+    for k in ["size", "budget", "scene", "brand"]:
+        if slots.get(k) is not None:
+            out[k] = slots.get(k)
+
+    if slots.get("brand_any"):
+        out["brand_any"] = True
+        out["brand"] = None
+    return out
+
+
+def _next_missing_slot_4q(state: Dict[str, Any]) -> Optional[str]:
+    if state.get("size") is None:
+        return "size"
+    if state.get("budget") is None:
+        return "budget"
+    if state.get("scene") is None:
+        return "scene"
+    if (state.get("brand") is None) and (not state.get("brand_any", False)):
+        return "brand"
+    return None
+
+
+QUESTION_TEXT_4Q = {
+    "size": "你想要多大尺寸？比如：75（也可以回“75寸”）",
+    "budget": "预算大概多少？比如：13000（或 13k / 1.3万）",
+    "scene": "主要用途是什么？回一个就行：ps5 / movie / bright（白天客厅很亮）",
+    "brand": "有指定品牌吗？比如：TCL；如果没有就回：不限",
+}
+
+
+def _run_3p2(state: Dict[str, Any]) -> str:
+    return recommend_text(
+        size=int(state["size"]),
+        scene=str(state["scene"]),
+        brand=state.get("brand"),
+        budget=state.get("budget"),
+    )
+
+
+def _build_short_and_structured(reply_full: str):
+    """
+    从 recommend_text 的长文里，抽取手机友好的短文 + 结构化数据
+    """
+    text = reply_full or ""
+    structured = {"top3": [], "one_liner": None}
+
+    m = re.search(r"一句话结论：\s*\n?(.+)", text)
+    if m:
+        structured["one_liner"] = m.group(1).strip()
+
+    for line in text.splitlines():
+        s = line.strip()
+        mm = re.match(r"^(1|2|3)\.\s+(.+)$", s)
+        if not mm:
+            continue
+        if "|" not in s:
+            continue
+
+        rank = int(mm.group(1))
+        first = mm.group(2).strip()
+
+        price = None
+        mp = re.search(r"￥\s*([0-9]{3,6})", first)
+        if mp:
+            price = int(mp.group(1))
+
+        size = None
+        ms = re.search(r"(\d{2,3})\s*寸", first)
+        if ms:
+            size = int(ms.group(1))
+
+        model = first.split("|")[0].strip()
+        model = re.sub(r"\s*\d{2,3}\s*寸\s*$", "", model).strip()
+
+        structured["top3"].append({"rank": rank, "model": model, "size": size, "price": price})
+
+    structured["top3"] = sorted(structured["top3"], key=lambda x: x.get("rank", 99))
+
+    lines_out = []
+    if structured["one_liner"]:
+        lines_out.append(f"一句话：{structured['one_liner']}")
+    if structured["top3"]:
+        lines_out.append("Top3：")
+        for i in structured["top3"]:
+            p = f"￥{i['price']}" if i.get("price") else "￥?"
+            ss = f"{i['size']}寸" if i.get("size") else ""
+            lines_out.append(f"{i['rank']}. {i['model']} {ss} {p}".strip())
+        lines_out.append("（回复：更多 查看详细分析）")
+
+    reply_short = "\n".join(lines_out).strip()
+    return reply_short, structured
+
+
+class DialogReq(BaseModel):
+    text: str
+    session_id: Optional[str] = None
+    state: Optional[Dict[str, Any]] = None
+
+
+class DialogResp(BaseModel):
+    ok: bool
+    session_id: str
+    reply: str
+    state: Dict[str, Any]
+    done: bool
+
+    reply_short: Optional[str] = None
+    reply_full: Optional[str] = None
+    structured: Optional[Dict[str, Any]] = None
+
+
+@app.get("/health")
+def health():
+    return {"ok": True, "ts": _now_ts()}
+
+
+@app.post("/api/dialog/parse")
+async def api_dialog_parse(request: Request):
+    try:
+        data = await _read_json_body(request)
+        req = DialogReq(**data)
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"ok": False, "error": f"parse body failed: {e}"})
+
+    slots = parse_slots(req.text or "")
+    base = _normalize_state(req.state)
+    merged = _merge_state(base, slots)
+    return JSONResponse(content={"ok": True, "slots": slots, "state": merged})
+
+
+@app.post("/api/dialog/3p2", response_model=DialogResp)
+async def api_dialog_3p2(request: Request):
+    try:
+        data = await _read_json_body(request)
+        req = DialogReq(**data)
+    except Exception as e:
+        return DialogResp(
+            ok=False,
+            session_id="",
+            reply=f"❌ 解析请求失败：{e}",
+            state={"size": None, "budget": None, "scene": None, "brand": None, "brand_any": False},
+            done=False,
+        )
+
+    sid, pack = _get_session(req.session_id)
+
+    if req.state is not None:
+        pack["state"] = _normalize_state(req.state)
+
+    state = _normalize_state(pack.get("state"))
+    text = (req.text or "").strip()
+
+    t_norm = re.sub(r"\s+", "", text)
+    t_norm = re.sub(r"[!！。.,，?？]+$", "", t_norm)
+    if t_norm.lower() in ["更多", "展开", "详细", "详情", "全文", "more", "detail"]:
+        last_full = pack.get("last_reply_full")
+        last_short = pack.get("last_reply_short")
+        last_struct = pack.get("last_structured")
+        last_state = _normalize_state(pack.get("last_state") or pack.get("state"))
+
+        if last_full:
+            return DialogResp(
+                ok=True,
+                session_id=sid,
+                reply=last_full,
+                reply_short=last_short,
+                reply_full=last_full,
+                structured=last_struct,
+                state=last_state,
+                done=True,
+            )
+
+        return DialogResp(
+            ok=True,
+            session_id=sid,
+            reply="我还没有上一条结果可展开。你可以先发一句：例如“75 13k ps5 只要tcl”。",
+            state=last_state,
+            done=False,
+        )
+
+    slots = parse_slots(text)
+
+    if slots.get("_reset"):
+        pack["state"] = {"size": None, "budget": None, "scene": None, "brand": None, "brand_any": False}
+        pack["last_reply_full"] = None
+        pack["last_reply_short"] = None
+        pack["last_structured"] = None
+        pack["last_state"] = None
+        return DialogResp(
+            ok=True,
+            session_id=sid,
+            reply="✅ 已重置。你想要多大尺寸？比如：75（也可以回“75寸”）",
+            state=pack["state"],
+            done=False,
+        )
+
+    state = _merge_state(state, slots)
+    pack["state"] = state
+
+    missing = _next_missing_slot_4q(state)
+    if missing:
+        return DialogResp(
+            ok=True,
+            session_id=sid,
+            reply=QUESTION_TEXT_4Q[missing],
+            state=state,
+            done=False,
+        )
+
+    try:
+        t0 = time.perf_counter()
+        reply_full = _run_3p2(state)
+        cost = time.perf_counter() - t0
+        print(f"[3p2] TOTAL(_run_3p2) cost={cost:.3f}s")
+
+        reply_short, structured = _build_short_and_structured(reply_full)
+        if not reply_short:
+            reply_short = "已生成推荐（回复：更多 查看详细分析）"
+    except Exception as e:
+        return DialogResp(
+            ok=False,
+            session_id=sid,
+            reply=f"❌ 生成推荐失败：{e}",
+            state=state,
+            done=False,
+        )
+
+    pack["last_reply_full"] = reply_full
+    pack["last_reply_short"] = reply_short
+    pack["last_structured"] = structured
+    pack["last_state"] = dict(state)
+
+    pack["state"] = {"size": None, "budget": None, "scene": None, "brand": None, "brand_any": False}
+
+    return DialogResp(
+        ok=True,
+        session_id=sid,
+        reply=reply_short,
+        reply_short=reply_short,
+        reply_full=reply_full,
+        structured=structured,
+        state=state,
+        done=True,
+    )
+
+
+@app.post("/api/dialog/3p2/reset")
+def api_dialog_3p2_reset(req: DialogReq):
+    sid = req.session_id or ""
+    if not sid:
+        return JSONResponse(status_code=400, content={"ok": False, "error": "session_id required"})
+    _SESS.pop(sid, None)
+    return JSONResponse(content={"ok": True, "session_id": sid})
+
+
+# =========================================================
+# ✅ /webhook 适配层：给 Clawdbot / gateway 用
+# =========================================================
+@app.post("/webhook")
+async def webhook(request: Request):
+    """
+    兼容 Clawdbot/Gateway 常见入参：
+      { "user_id":"u1", "session_id":"t1", "text":"..." }
+
+    返回统一格式：
+      { "ok": true, "reply": "...", "raw": { ... } }
+
+    逻辑：
+    - 直接复用 /api/dialog/3p2 的行为（含“更多”缓存）
+    - done=true: reply=短文（或更多时长文）
+    - done=false: reply=追问句
+    """
+    try:
+        data = await _read_json_body(request)
+    except Exception as e:
+        return _json_err(f"bad json: {e}", status_code=400)
+
+    user_id = str(data.get("user_id") or "")
+    session_id = str(data.get("session_id") or "")
+    text = str(data.get("text") or "").strip()
+
+    if not session_id:
+        # 若 gateway 不给 session_id，就给一个；但建议 gateway 传
+        session_id = uuid4().hex
+
+    if not text:
+        return _json_err("missing text", status_code=400)
+
+    # 组装成 DialogReq，复用同一套 session/cache
+    req = DialogReq(text=text, session_id=session_id, state=data.get("state"))
+
+    # 直接调用内部逻辑（等价于 /api/dialog/3p2）
+    # 为了不重复解析 body，这里复制 /api/dialog/3p2 的核心流程（轻量）
+    sid, pack = _get_session(req.session_id)
+
+    if req.state is not None:
+        pack["state"] = _normalize_state(req.state)
+
+    state = _normalize_state(pack.get("state"))
+    text2 = (req.text or "").strip()
+
+    t_norm = re.sub(r"\s+", "", text2)
+    t_norm = re.sub(r"[!！。.,，?？]+$", "", t_norm)
+    if t_norm.lower() in ["更多", "展开", "详细", "详情", "全文", "more", "detail"]:
+        last_full = pack.get("last_reply_full")
+        if last_full:
+            raw = {
+                "ok": True,
+                "session_id": sid,
+                "reply": last_full,
+                "state": _normalize_state(pack.get("last_state") or pack.get("state")),
+                "done": True,
+                "reply_short": pack.get("last_reply_short"),
+                "reply_full": last_full,
+                "structured": pack.get("last_structured"),
+            }
+            return _json_ok(last_full, raw=raw)
+        return _json_ok("我还没有上一条结果可展开。你可以先发一句：例如“75 13k ps5 只要tcl”。", raw={"ok": True, "session_id": sid})
+
+    slots = parse_slots(text2)
+
+    if slots.get("_reset"):
+        pack["state"] = {"size": None, "budget": None, "scene": None, "brand": None, "brand_any": False}
+        pack["last_reply_full"] = None
+        pack["last_reply_short"] = None
+        pack["last_structured"] = None
+        pack["last_state"] = None
+        raw = {"ok": True, "session_id": sid, "done": False, "state": pack["state"]}
+        return _json_ok("✅ 已重置。你想要多大尺寸？比如：75（也可以回“75寸”）", raw=raw)
+
+    state = _merge_state(state, slots)
+    pack["state"] = state
+
+    missing = _next_missing_slot_4q(state)
+    if missing:
+        q = QUESTION_TEXT_4Q[missing]
+        raw = {"ok": True, "session_id": sid, "done": False, "state": state}
+        return _json_ok(q, raw=raw)
+
+    try:
+        reply_full = _run_3p2(state)
+        reply_short, structured = _build_short_and_structured(reply_full)
+        if not reply_short:
+            reply_short = "已生成推荐（回复：更多 查看详细分析）"
+    except Exception as e:
+        return _json_err(f"generate failed: {e}", status_code=500)
+
+    pack["last_reply_full"] = reply_full
+    pack["last_reply_short"] = reply_short
+    pack["last_structured"] = structured
+    pack["last_state"] = dict(state)
+    pack["state"] = {"size": None, "budget": None, "scene": None, "brand": None, "brand_any": False}
+
+    raw = {
+        "ok": True,
+        "session_id": sid,
+        "reply": reply_short,
+        "state": state,
+        "done": True,
+        "reply_short": reply_short,
+        "reply_full": reply_full,
+        "structured": structured,
+        "user_id": user_id,
+    }
+    return _json_ok(reply_short, raw=raw)
 
 
 # =========================================================

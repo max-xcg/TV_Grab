@@ -1,11 +1,23 @@
 # -*- coding: utf-8 -*-
+"""
+tv_buy_1_0/run_reco.py  （完整版｜可一键复制粘贴替换）
+
+目标：
+- CLI/规则推荐必须永远可跑（即使没装 openai / 没配 LLM）
+- LLM 只做“可选增强”：ENABLE_LLM=True 且依赖可用时才启用
+"""
+
 import argparse
 import sqlite3
 import os
-from typing import Any, Dict, List, Tuple, Optional
-import yaml
+import re
+import sys
+import io
 from datetime import datetime
-import sys, io, re
+from typing import Any, Dict, List, Tuple, Optional
+
+import yaml
+
 from tv_buy_1_0.reasons_v2 import (
     reasons_ps5_v2,
     reasons_movie_v2,
@@ -15,17 +27,27 @@ from tv_buy_1_0.reasons_v2 import (
     top1_summary_bright,
 )
 
-from tv_buy_1_0.config.settings import ENABLE_LLM
-from tv_buy_1_0.llm.enhance import enhance_with_llm
+# =========================================================
+# LLM 开关（软依赖）
+# =========================================================
+# 你的 config/settings.py 里已有 ENABLE_LLM（建议默认 False）
+from tv_buy_1_0.config.settings import ENABLE_LLM  # noqa: E402
 
+# 软依赖：没有 openai/相关依赖时，不允许 import 失败导致 CLI 不能跑
+try:
+    from tv_buy_1_0.llm.enhance import enhance_with_llm  # noqa: E402
+    HAS_LLM = True
+except Exception:
+    enhance_with_llm = None  # type: ignore
+    HAS_LLM = False
 
-
-
-# Windows/FastAPI 子进程中文输出不炸
+# =========================================================
+# Windows / FastAPI 子进程中文输出不炸
+# =========================================================
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # => tv_buy_1_0/
 DB = os.path.join(BASE_DIR, "db", "tv.sqlite")
 PROFILES = os.path.join(BASE_DIR, "config", "profiles.yaml")
 
@@ -64,6 +86,7 @@ def months_ago(yyyymm: Any) -> Optional[int]:
     now = datetime.now()
     return (now.year - y) * 12 + (now.month - m)
 
+
 def fmt(x: Any, suffix: str = "") -> str:
     if x is None:
         return "?"
@@ -72,6 +95,7 @@ def fmt(x: Any, suffix: str = "") -> str:
     if isinstance(x, bool) and suffix == "":
         return "有" if x else "无"
     return f"{x}{suffix}"
+
 
 def to_bool01(x: Any) -> Optional[float]:
     if x is None:
@@ -88,14 +112,17 @@ def to_bool01(x: Any) -> Optional[float]:
             return 0.0
     return None
 
+
 def norm_pos(x, lo, hi) -> float:
     if x is None or hi <= lo:
         return 0.0
     x = max(lo, min(hi, float(x)))
     return (x - lo) / (hi - lo)
 
+
 def norm_neg(x, lo, hi) -> float:
     return 1.0 - norm_pos(x, lo, hi)
+
 
 def norm_brand(brand: Optional[str]) -> Optional[str]:
     if not brand:
@@ -111,6 +138,7 @@ def norm_brand(brand: Optional[str]) -> Optional[str]:
         return "sony"
     return b
 
+
 def launch_year_from_date(d: Any) -> int:
     if not d:
         return 0
@@ -118,6 +146,7 @@ def launch_year_from_date(d: Any) -> int:
         return int(str(d)[:4])
     except Exception:
         return 0
+
 
 def parse_price(p: Any) -> Optional[float]:
     """支持 12999 / '12,999' / '¥12999' / '￥12999' """
@@ -134,6 +163,7 @@ def parse_price(p: Any) -> Optional[float]:
     except Exception:
         return None
 
+
 def date_rank(d: Any) -> int:
     """YYYY-MM / YYYY-MM-DD -> yyyymmdd int, 越大越新；无日期=0"""
     if not d:
@@ -147,6 +177,7 @@ def date_rank(d: Any) -> int:
         return y * 10000 + m * 100 + dd
     except Exception:
         return 0
+
 
 # =========================
 # data loading
@@ -164,11 +195,13 @@ def load_profile(scene: str):
     boolean_metrics = set(p.get("boolean_metrics", []))
     return weights, negative, boolean_metrics, penalties
 
+
 def minmax(cands: List[Dict[str, Any]], key: str):
     vals = [c.get(key) for c in cands if c.get(key) is not None]
     if not vals:
         return 0.0, 1.0
     return float(min(vals)), float(max(vals))
+
 
 def all_by_size(target: int) -> List[Dict[str, Any]]:
     """返回尺寸区间内的全部机型（不按品牌去重）"""
@@ -185,6 +218,7 @@ def all_by_size(target: int) -> List[Dict[str, Any]]:
     conn.close()
     return [dict(r) for r in rows]
 
+
 def apply_filters(
     cands: List[Dict[str, Any]],
     brand: Optional[str] = None,
@@ -192,8 +226,8 @@ def apply_filters(
 ) -> List[Dict[str, Any]]:
     """硬过滤：brand & budget"""
     out: List[Dict[str, Any]] = []
-
     bkey = norm_brand(brand)
+
     for tv in cands:
         if bkey:
             tvb = norm_brand(tv.get("brand"))
@@ -212,6 +246,7 @@ def apply_filters(
 
     return out
 
+
 # =========================
 # candidates preview (for chat UI)
 # =========================
@@ -219,7 +254,7 @@ def list_candidates(
     size: int,
     brand: Optional[str] = None,
     budget: Optional[int] = None,
-    limit: int = 10
+    limit: int = 10,
 ) -> Tuple[int, List[Dict[str, Any]]]:
     """
     返回：过滤后的候选数量 + 前 limit 条
@@ -229,8 +264,10 @@ def list_candidates(
 
     def year_bucket(tv: Dict[str, Any]) -> int:
         y = launch_year_from_date(tv.get("launch_date"))
-        if y == 2026: return 0
-        if y == 2025: return 1
+        if y == 2026:
+            return 0
+        if y == 2025:
+            return 1
         return 2
 
     def price_rank(tv: Dict[str, Any]) -> float:
@@ -247,6 +284,7 @@ def list_candidates(
 
     total = len(cands)
     return total, cands[:limit]
+
 
 def format_candidates(
     size: int,
@@ -273,6 +311,7 @@ def format_candidates(
             f"{i}. {tv.get('brand')} {tv.get('model')} {tv.get('size_inch')}寸 | 首发 {tv.get('launch_date')} | ￥{fmt(tv.get('street_rmb'))}"
         )
     return "\n".join(lines)
+
 
 # =========================
 # scoring recommendation
@@ -367,6 +406,7 @@ def get_top3(
     )
     return ranked[:3]
 
+
 # =========================
 # explanation text
 # =========================
@@ -401,12 +441,13 @@ def reasons(tv: Dict[str, Any], scene: str) -> Tuple[List[str], str]:
 
     return r, "—"
 
+
 def recommend_text(
     size: int,
     scene: str,
     brand: Optional[str] = None,
     budget: Optional[int] = None,
-    year_prefer: int = 2026
+    year_prefer: int = 2026,
 ) -> str:
     top3 = get_top3(size=size, scene=scene, brand=brand, budget=budget, year_prefer=year_prefer)
 
@@ -430,12 +471,14 @@ def recommend_text(
     lines.append("")
     lines.append("Top 3 推荐（过滤后候选集内排序）")
     lines.append("-" * 70)
+
     for i, tv in enumerate(top3, 1):
         warn = ""
         if tv.get("peak_brightness_nits") and tv["peak_brightness_nits"] > 6000:
             warn = " ⚠️亮度口径偏激进"
         title = f"{tv.get('brand')} {tv.get('model')} {tv.get('size_inch')}寸"
         lines.append(f"{i}. {title} | 首发 {tv.get('launch_date')} | ￥{fmt(tv.get('street_rmb'))}{warn}")
+
         if scene == "ps5":
             rs, not_fit = reasons_ps5_v2(tv)
         elif scene == "movie":
@@ -444,7 +487,7 @@ def recommend_text(
             rs, not_fit = reasons_bright_v2(tv)
         else:
             rs, not_fit = reasons(tv, scene)
-        # 其它场景先不动
+
         for line in rs:
             lines.append(f"   - {line}")
         lines.append(f"   - 不适合：{not_fit}")
@@ -462,7 +505,8 @@ def recommend_text(
 
     base_text = "\n".join(lines)
 
-    if ENABLE_LLM:
+    # ✅ LLM 增强：必须同时满足 ENABLE_LLM=True 且依赖可用
+    if ENABLE_LLM and HAS_LLM and enhance_with_llm is not None:
         try:
             llm_text = enhance_with_llm(
                 top3=top3,
@@ -473,6 +517,10 @@ def recommend_text(
             return base_text + "\n\n———\n\n🤖 AI 增强解读：\n" + llm_text
         except Exception as e:
             return base_text + f"\n\n⚠️ LLM 增强失败，已回退规则引擎结果：{e}"
+
+    # ✅ 开了开关但没依赖：明确提示（不报错）
+    if ENABLE_LLM and (not HAS_LLM):
+        return base_text + "\n\n⚠️ 已开启 ENABLE_LLM，但本机未安装/不可用 LLM 依赖（例如 openai）。已使用规则引擎结果。"
 
     return base_text
 
@@ -500,7 +548,16 @@ def main():
         print(format_candidates(args.size, total, cands, brand=args.brand, budget=args.budget))
         return
 
-    print(recommend_text(args.size, args.scene, brand=args.brand, budget=args.budget, year_prefer=args.prefer_year))
+    print(
+        recommend_text(
+            args.size,
+            args.scene,
+            brand=args.brand,
+            budget=args.budget,
+            year_prefer=args.prefer_year,
+        )
+    )
+
 
 if __name__ == "__main__":
     main()

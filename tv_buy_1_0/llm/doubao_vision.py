@@ -1,143 +1,122 @@
 # -*- coding: utf-8 -*-
 """
-llm/doubao_vision.py
+tv_buy_1_0/llm/doubao_vision.py
 
-豆包 / 火山方舟(Ark) 多模态（视觉）调用封装：
-1) chat_with_images(system_prompt, user_text, image_paths)  # 通用：文本 + 多图
-2) contrast_yaml_from_two_images(native_path, effective_path, prompt_path=...)  # 专用：两张对比度图 -> YAML
-
-依赖：
-  pip install openai
-
-环境变量：
-  ARK_API_KEY        方舟 API Key（推荐）
-  ARK_BASE_URL       默认 https://ark.cn-beijing.volces.com/api/v3
-  ARK_VISION_MODEL   视觉 EndpointID（例如 ep-xxxx）
+电视选购最终结论生成（仅输出结论正文，不输出列表/编号/Top3 等）
 """
-
 from __future__ import annotations
 
 import os
-import base64
-from pathlib import Path
-from typing import List, Optional
+import json
+from typing import Dict, Any, Optional, Tuple
 
 from openai import OpenAI
 
 
-# =========================
-# 环境变量
-# =========================
-ARK_BASE_URL = os.getenv("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
-ARK_API_KEY = os.getenv("ARK_API_KEY") or os.getenv("OPENAI_API_KEY")
-ARK_VISION_MODEL = os.getenv("ARK_VISION_MODEL")
-
-if not ARK_API_KEY:
-    raise RuntimeError(
-        "缺少 ARK_API_KEY（或 OPENAI_API_KEY）。请先在 Git Bash 中 export ARK_API_KEY=..."
-    )
-if not ARK_VISION_MODEL:
-    raise RuntimeError(
-        "缺少 ARK_VISION_MODEL（你的视觉 EndpointID，例如 ep-xxxx）。请先 export ARK_VISION_MODEL=..."
-    )
-
-_CLIENT = OpenAI(api_key=ARK_API_KEY, base_url=ARK_BASE_URL)
+# =========================================================
+# 基础配置
+# =========================================================
+def _get_env(name: str, default: Optional[str] = None) -> Optional[str]:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    v = v.strip()
+    return v if v else default
 
 
-# =========================
-# 工具函数
-# =========================
-def _img_to_data_url(image_path: str) -> str:
-    ext = os.path.splitext(image_path)[1].lower()
-    mime = "image/png"
-    if ext in [".jpg", ".jpeg"]:
-        mime = "image/jpeg"
-    elif ext == ".webp":
-        mime = "image/webp"
-
-    with open(image_path, "rb") as f:
-        b64 = base64.b64encode(f.read()).decode("utf-8")
-    return f"data:{mime};base64,{b64}"
+_CLIENT: Optional[OpenAI] = None
 
 
-def _read_text_file(path: str) -> str:
-    p = Path(path)
-    if not p.exists():
-        raise FileNotFoundError(f"找不到文件：{p.as_posix()}")
-    return p.read_text(encoding="utf-8").strip()
-
-
-# =========================
-# 通用：文本 + 多图
-# =========================
-def chat_with_images(system_prompt: str, user_text: str, image_paths: List[str]) -> str:
+def _get_client_and_model() -> Tuple[OpenAI, str]:
     """
-    通用多模态对话：system_prompt + user_text + 多张图片
-    返回模型输出文本（不做解析）
+    兼容 Volcengine Ark OpenAI-compat endpoint：
+      ARK_BASE_URL: https://ark.cn-beijing.volces.com/api/v3
+      ARK_API_KEY:  ...
+      ARK_VISION_MODEL: 你的模型名（必配，或用 OPENAI_MODEL fallback）
     """
-    contents = [{"type": "text", "text": user_text}]
-    for p in image_paths:
-        contents.append({"type": "image_url", "image_url": {"url": _img_to_data_url(p)}})
+    global _CLIENT
 
-    resp = _CLIENT.chat.completions.create(
-        model=ARK_VISION_MODEL,
+    base_url = _get_env("ARK_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+    api_key = _get_env("ARK_API_KEY") or _get_env("OPENAI_API_KEY")
+
+    # ✅ 给一个 fallback，避免你忘记配 ARK_VISION_MODEL 就直接崩
+    model = _get_env("ARK_VISION_MODEL") or _get_env("OPENAI_MODEL")
+
+    if not api_key:
+        raise RuntimeError("缺少 ARK_API_KEY / OPENAI_API_KEY")
+    if not model:
+        raise RuntimeError("缺少 ARK_VISION_MODEL（或 OPENAI_MODEL 作为 fallback）")
+
+    if _CLIENT is None:
+        _CLIENT = OpenAI(api_key=api_key, base_url=base_url)
+
+    return _CLIENT, model
+
+
+def chat_text(system_prompt: str, user_text: str) -> str:
+    client, model = _get_client_and_model()
+
+    resp = client.chat.completions.create(
+        model=model,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": contents},
+            {"role": "user", "content": user_text},
         ],
-        temperature=0,
+        temperature=0.3,
+        # 有些兼容端支持 timeout，有些不支持；不强行传，避免不兼容
     )
     return (resp.choices[0].message.content or "").strip()
 
 
-# =========================
-# 专用：两张对比度图 -> YAML
-# =========================
-def contrast_yaml_from_two_images(
-    native_path: str,
-    effective_path: str,
-    *,
-    prompt_path: str = "g2_lab/prompts/contrast_extract_system.yaml",
-    user_instruction: Optional[str] = None,
-) -> str:
+# =========================================================
+# 最终结论生成（只输出结论，不含任何列表）
+# =========================================================
+def generate_reco_report(payload: Dict[str, Any]) -> str:
     """
-    发送两张对比度测试图片，使用固定的系统 Prompt（G2 Lab 数据录入工程师指令集）
-    让模型直接输出符合 G2 标准的 contrast_test_record YAML。
-
-    native_path:    原生对比度测试图（Local Dimming OFF）
-    effective_path: 有效对比度测试图（Local Dimming ON / High）
-    prompt_path:    存放你那段“核心指令集”的文件路径
-    user_instruction: 额外用户指令（可选）
+    输入：
+      {
+        "query": {...},
+        "items": [已排序候选，前三最重要]
+      }
+    输出：
+      一段完整、自然的中文选购结论（无策略、无列表）
     """
-    system_prompt = _read_text_file(prompt_path)
+    query = payload.get("query") or {}
+    items = payload.get("items") or []
+    if not items:
+        return ""
 
-    if not user_instruction:
-        user_instruction = (
-            "你将收到两张测试结果图片："
-            "图片1为原生对比度（Local Dimming OFF），图片2为有效对比度（Local Dimming ON / High）。"
-            "请严格按照系统指令集，将两张图转换为完整的 contrast_test_record YAML。"
-            "只输出 YAML，不要输出任何解释文字。"
-        )
+    core_items = items[:3]
 
-    # 两张图同时发给模型
-    return chat_with_images(
-        system_prompt=system_prompt,
-        user_text=user_instruction,
-        image_paths=[native_path, effective_path],
+    system_prompt = (
+        "你是一名非常克制、非常专业的电视选购顾问。\n\n"
+        "【你正在做什么】\n"
+        "你已经拿到了系统筛选和排序后的前三台核心候选电视。\n"
+        "你的任务不是复述结果，而是帮用户真正理解“该怎么选”。\n\n"
+        "【绝对禁止事项】\n"
+        "1. 不要输出任何列表、编号、Top3、候选池、策略说明。\n"
+        "2. 不要输出价格表、型号清单、YAML 路径。\n"
+        "3. 不要提及“排序逻辑”“算法”“系统判断”。\n\n"
+        "【允许且必须做的事】\n"
+        "1. 用自然语言，对这三台电视做取舍式对比分析。\n"
+        "2. 说明每一台被选择时，用户能获得的实际收益（而不是参数堆砌）。\n"
+        "3. 说明每一台隐含的代价或不确定点（如发布时间、配置需确认）。\n"
+        "4. 最后站在理性角度，给出一个“最稳妥、性价比最高”的最终建议。\n\n"
+        "【证据规则】\n"
+        "- 只能基于 payload 中出现的字段写结论。\n"
+        "- 如关键能力未明确，请写“需要购买前确认”，禁止猜测。\n\n"
+        "【语气】\n"
+        "- 像一个认真帮你省钱、避免踩坑的朋友。\n"
+        "- 不营销，不夸张，不下判断结论之外的承诺。\n"
     )
 
+    user_text = json.dumps(
+        {"query": query, "items": core_items},
+        ensure_ascii=False,
+    )
 
-# =========================
-# 命令行快速测试（可选）
-# =========================
+    return chat_text(system_prompt, user_text)
+
+
 if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) < 3:
-        print("用法: python -m llm.doubao_vision native.png effective.png")
-        sys.exit(1)
-
-    n = sys.argv[1]
-    e = sys.argv[2]
-    out = contrast_yaml_from_two_images(n, e)
-    print(out)
+    print("This module is designed to be called by the agent/app layer.")
