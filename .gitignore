@@ -45,3 +45,4 @@ tv_buy_1_0/effective.png
 # ===== Playwright =====
 .playwright/
 playwright-report/
+env.sh
