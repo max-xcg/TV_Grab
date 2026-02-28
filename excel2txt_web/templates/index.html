@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Excel → TXT（内网）</title>
+  <style>
+    body{margin:0;background:#0b1220;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,Roboto,"PingFang SC","Microsoft YaHei",Arial}
+    .wrap{max-width:1050px;margin:0 auto;padding:28px 18px}
+    .title{font-size:28px;font-weight:800;letter-spacing:.5px}
+    .sub{color:#9ca3af;font-size:13px;margin-top:6px}
+    .card{margin-top:16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:18px}
+    label{display:block;margin:12px 0 6px;color:#cbd5e1;font-size:13px}
+    input[type="text"],input[type="file"]{
+      width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;
+      border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.25);color:#e5e7eb
+    }
+    .row{display:flex;gap:12px}
+    .row>div{flex:1}
+    button{margin-top:14px;padding:10px 14px;border:0;border-radius:12px;background:#2563eb;color:white;cursor:pointer;font-weight:700}
+    .ok{margin-top:14px;color:#bbf7d0;background:rgba(34,197,94,.12);padding:10px 12px;border-radius:12px;border:1px solid rgba(34,197,94,.30)}
+    .err{margin-top:14px;color:#fecaca;background:rgba(220,38,38,.15);padding:10px 12px;border-radius:12px;border:1px solid rgba(220,38,38,.35)}
+    pre{margin-top:10px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.10);padding:12px;border-radius:12px;overflow:auto;max-height:420px}
+    a{color:#93c5fd;text-decoration:none}
+    .muted{color:#9ca3af;font-size:13px;margin-top:10px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">Excel → TXT 生成器（内网）</div>
+  <div class="sub">上传 Excel，点击生成，TXT 会落到：<b>D:\Gen2\{品牌}txt文件\</b>（不存在自动创建）。</div>
+
+  <div class="card">
+    <form action="/api/gen_txt" method="post" enctype="multipart/form-data">
+      <label>选择 Excel 文件（.xlsx/.xlsm）</label>
+      <input name="file" type="file" accept=".xlsx,.xlsm" required />
+
+      <div class="row">
+        <div>
+          <label>Sheet（可选，不填=自动处理全部可识别 Sheet）</label>
+          <input name="sheet" type="text" placeholder="例如：主要在售型号（不填也行）" />
+        </div>
+        <div>
+          <label>品牌（可选，不填=从文件名自动识别）</label>
+          <input name="brand" type="text" placeholder="例如：TCL / 海信 / 小米 / Vidda..." />
+        </div>
+      </div>
+
+      <button type="submit">生成 TXT</button>
+      <div class="muted">生成后会显示保存路径，并提供下载。</div>
+    </form>
+
+    {% if error %}
+      <div class="err">错误：{{ error }}</div>
+    {% endif %}
+
+    {% if ok %}
+      <div class="ok">
+        已生成：<b>{{ out_name }}</b><br/>
+        保存到：<b>{{ out_path }}</b><br/>
+        <a href="{{ download_url }}">下载 TXT</a>
+      </div>
+      <div class="muted">预览（前 250 行）：</div>
+      <pre>{{ preview }}</pre>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>

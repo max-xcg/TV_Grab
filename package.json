@@ -1,0 +1,21 @@
+{
+  "name": "tv_grab",
+  "version": "1.0.0",
+  "description": "该项目用于从 **TVLabs** 网站抓取不同品牌和年份的电视机型信息，并将其保存为规范的 **YAML** 格式。以下是项目中各个文件和目录的详细说明。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/max-xcg/TV_Grab.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/max-xcg/TV_Grab/issues"
+  },
+  "homepage": "https://github.com/max-xcg/TV_Grab#readme"
+}

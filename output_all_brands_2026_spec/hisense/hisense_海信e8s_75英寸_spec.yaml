@@ -3,7 +3,7 @@ meta:                                   # 元信息
   first_release: null                   # 是否为该系列首发批次（未知填 null）
   data_source: tvlabs.cn                # 数据来源
   price_cny: 12999                       # 官方/标注价格（CNY；未知填 null）
-  last_updated: 2026-01-24            # 更新时间：YYYY-MM-DD（未知填 null）
+  last_updated: 2026-02-25            # 更新时间：YYYY-MM-DD（未知填 null）
 product_id: hisense_海信e8s_75英寸                  # 产品唯一ID（建议 brand_model_size）
 brand: hisense                              # 品牌（建议用 brands.yaml 的 brand_path）
 model: 海信E8S 75英寸                           # 型号
@@ -15,7 +15,7 @@ positioning:                            # 市场定位
 display:                                # 显示参数
   size_inch: 75                         # 屏幕尺寸（英寸；未知填 null）
   resolution: 4k                        # 分辨率（4k/8k/...；未知填 null）
-  technology: mini_led_lcd                       # 显示技术枚举（lcd/mini_led_lcd/qd_mini_led_lcd/oled/...；未知填 null）
+  technology: rgb_mini_led_lcd                       # 显示技术枚举（lcd/mini_led_lcd/qd_mini_led_lcd/rgb_mini_led_lcd/oled/...；未知填 null）
   panel_type: soft                      # 面板类型（soft/hard；未知填 null）
   backlight_type: direct_lit            # 背光方式（direct_lit/edge_lit；未知填 null）
   peak_brightness_nits: 4000             # 峰值亮度（尼特；未知填 null）
@@ -28,13 +28,13 @@ display:                                # 显示参数
     reflectance_pct: 1.8               # 反射率（%；未知填 null）
 refresh:                                # 刷新与运动
   native_hz: 180                        # 原生刷新率（Hz；未知填 null）
-  dlf_max_hz: 330                       # DLG/DLF 倍频最高刷新率（Hz；未知填 null）
+  dlf_max_hz: 330                       # 倍频最高刷新率（Hz；未知填 null）
   memc:                                 # 运动补偿（MEMC）
     supported: true                     # 是否支持 MEMC（true/false；未知填 null）
     max_fps: 120                        # 最大插帧帧率（fps；未知填 null）
 processing:                             # 画质处理
   picture_chip:                         # 画质芯片
-    name: null                               # 芯片名称（未知填 null）
+    name: 信芯®Al画质芯片H7 ( TCON板方案 )                               # 芯片名称（未知填 null）
     type: tcon_board_solution                               # 芯片类型（未知填 null）
 soc:                                    # 主控 SoC
   vendor: mediatek                      # SoC 厂商（mediatek/...；未知填 null）
@@ -59,7 +59,8 @@ network:                                # 网络
     standard: wifi_6                    # Wi-Fi 标准（wifi_6/...；未知填 null）
     band: dual_band                     # Wi-Fi 频段（dual_band/...；未知填 null）
 audio:                                  # 音频
-  speaker_channels: 4.1               # 声道（如 2.1/2.2.2；未知填 null）
+  speaker_channels: 4.1               # 声道（如 2.1/4.1；未知填 null）
+  speaker_power_w: 85                 # 扬声器总功率（W；未知填 null）
 power:                                  # 功耗
   max_power_w: 350                          # 最大功率（W；未知填 null）
 system:                                 # 系统特性
@@ -73,13 +74,14 @@ gaming_features:                        # 游戏特性
 camera:                                 # 摄像头
   built_in: false                       # 是否内置摄像头（true/false；未知填 null）
 hdr_audio_support:                      # HDR/音效增强
-  hdr: true                             # 是否支持 HDR（默认 true）
-  audio_effect: true                    # 是否支持音效增强（默认 true）
+  hdr: true                             # 是否支持 HDR
+  audio_effect: true                    # 是否支持音效增强
 dimensions_mm:                          # 由 __extras__ 解析出的尺寸信息（毫米）
   length_mm: 1670.0                     # 长度（mm；未知填 null）
   height_mm: 974.0                     # 高度（mm；裸机高度；未知填 null）
   thickness_mm: 44.0                    # 厚度（mm；裸机厚度；未知填 null）
   with_stand_height_mm: 1008.0          # 含底座高度（mm；未知填 null）
+  with_stand_thickness_mm: 340.0    # 含底座厚度（mm；未知填 null）
   wall_mount_v_hole_mm: null           # 壁挂孔距高度（mm；VESA 竖向；未知填 null）
   wall_mount_h_hole_mm: null           # 壁挂孔距宽度（mm；VESA 横向；未知填 null）
 detail_url: 'https://tvlabs.cn/tv/hisense/hisense-75E8S' # 参数详情页链接

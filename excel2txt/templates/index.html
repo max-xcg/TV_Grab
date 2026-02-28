@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Excel → TXT 转换工具</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; }
+  
+  h1 { font-size: 2rem; color: #2d3748; margin-bottom: 8px; }
+  .subtitle { color: #718096; margin-bottom: 32px; font-size: 0.95rem; }
+
+  .card { background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); padding: 36px; width: 100%; max-width: 700px; }
+
+  .drop-zone {
+    border: 2px dashed #cbd5e0; border-radius: 12px; padding: 48px 24px;
+    text-align: center; cursor: pointer; transition: all 0.2s; background: #f7fafc;
+    margin-bottom: 24px;
+  }
+  .drop-zone:hover, .drop-zone.drag-over { border-color: #4299e1; background: #ebf8ff; }
+  .drop-zone .icon { font-size: 3rem; margin-bottom: 12px; }
+  .drop-zone p { color: #4a5568; font-size: 1rem; }
+  .drop-zone span { color: #a0aec0; font-size: 0.85rem; display: block; margin-top: 6px; }
+  .drop-zone.has-file { border-color: #48bb78; background: #f0fff4; }
+  .drop-zone.has-file p { color: #276749; font-weight: 600; }
+
+  input[type=file] { display: none; }
+
+  .options { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .option-group { flex: 1; min-width: 200px; }
+  .option-group label { display: block; font-size: 0.85rem; color: #4a5568; font-weight: 600; margin-bottom: 6px; }
+  .option-group select { width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; color: #2d3748; background: #f7fafc; outline: none; }
+  .option-group select:focus { border-color: #4299e1; }
+
+  .btn {
+    width: 100%; padding: 14px; background: linear-gradient(135deg, #4299e1, #3182ce);
+    color: #fff; border: none; border-radius: 10px; font-size: 1.05rem; font-weight: 600;
+    cursor: pointer; transition: opacity 0.2s; letter-spacing: 0.5px;
+  }
+  .btn:hover { opacity: 0.9; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .progress { display: none; margin-top: 20px; text-align: center; color: #4299e1; font-size: 0.95rem; }
+  .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #bee3f8; border-top-color: #4299e1; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result { display: none; margin-top: 28px; }
+  .result-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .result-header h3 { color: #2d3748; font-size: 1rem; }
+  .result-info { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .badge { background: #ebf8ff; color: #2b6cb0; padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+  .badge.green { background: #f0fff4; color: #276749; }
+
+  .preview-box {
+    background: #1a202c; color: #e2e8f0; border-radius: 10px; padding: 16px;
+    font-family: 'Consolas', monospace; font-size: 0.8rem; line-height: 1.6;
+    max-height: 300px; overflow-y: auto; white-space: pre; word-break: break-all;
+  }
+
+  .download-btn {
+    display: block; margin-top: 16px; padding: 12px; text-align: center;
+    background: linear-gradient(135deg, #48bb78, #38a169); color: #fff;
+    border-radius: 10px; font-weight: 600; font-size: 1rem; text-decoration: none;
+    transition: opacity 0.2s;
+  }
+  .download-btn:hover { opacity: 0.9; }
+
+  .error-box { background: #fff5f5; border: 1px solid #feb2b2; color: #c53030; border-radius: 10px; padding: 14px 16px; margin-top: 16px; font-size: 0.9rem; display: none; }
+</style>
+</head>
+<body>
+
+<h1>📊 Excel → TXT 转换工具</h1>
+<p class="subtitle">支持 .xlsx / .xls / .csv，自动识别多Sheet，实时预览转换结果</p>
+
+<div class="card">
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="icon">📂</div>
+    <p id="dropText">点击选择文件，或将文件拖拽到此处</p>
+    <span>支持 .xlsx .xls .csv，最大 50MB</span>
+  </div>
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+
+  <div class="options">
+    <div class="option-group">
+      <label>列分隔符</label>
+      <select id="separator">
+        <option value="tab">Tab（制表符）</option>
+        <option value="comma">逗号 ,</option>
+        <option value="pipe">竖线 |</option>
+        <option value="space">空格</option>
+      </select>
+    </div>
+    <div class="option-group">
+      <label>Sheet 选择</label>
+      <select id="sheetsMode">
+        <option value="all">全部 Sheet</option>
+        <option value="first">仅第一个 Sheet</option>
+      </select>
+    </div>
+    <div class="option-group">
+      <label>单元格内换行处理</label>
+      <select id="newlineMode">
+        <option value="slash"> / 斜杠分隔</option>
+        <option value="br">↵ 符号标记</option>
+        <option value="space">空格合并</option>
+        <option value="keep">保留换行（多行输出）</option>
+      </select>
+    </div>
+  </div>
+
+  <button class="btn" id="convertBtn" onclick="startConvert()">🚀 开始转换</button>
+
+  <div class="progress" id="progress">
+    <span class="spinner"></span> 正在转换中，请稍候...
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="result" id="result">
+    <div class="result-header">
+      <h3>✅ 转换成功</h3>
+    </div>
+    <div class="result-info" id="resultInfo"></div>
+    <div class="preview-box" id="previewBox"></div>
+    <a class="download-btn" id="downloadBtn" href="#">⬇️ 下载 TXT 文件</a>
+  </div>
+</div>
+
+<script>
+let selectedFile = null;
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) setFile(e.target.files[0]);
+});
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+});
+
+function setFile(f) {
+  selectedFile = f;
+  dropZone.classList.add('has-file');
+  document.getElementById('dropText').textContent = `已选择：${f.name}  (${(f.size/1024/1024).toFixed(2)} MB)`;
+}
+
+async function startConvert() {
+  if (!selectedFile) { showError('请先选择一个文件'); return; }
+
+  const btn = document.getElementById('convertBtn');
+  const progress = document.getElementById('progress');
+  const result = document.getElementById('result');
+  const errorBox = document.getElementById('errorBox');
+
+  btn.disabled = true;
+  progress.style.display = 'block';
+  result.style.display = 'none';
+  errorBox.style.display = 'none';
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('separator', document.getElementById('separator').value);
+  formData.append('sheets_mode', document.getElementById('sheetsMode').value);
+  formData.append('newline_mode', document.getElementById('newlineMode').value);
+
+  try {
+    const resp = await fetch('/convert', { method: 'POST', body: formData });
+    const data = await resp.json();
+
+    if (data.error) { showError(data.error); return; }
+
+    // 展示结果
+    const info = document.getElementById('resultInfo');
+    info.innerHTML = `
+      <span class="badge green">共 ${data.total_lines} 行</span>
+      ${data.sheets.map(s => `<span class="badge">${s}</span>`).join('')}
+    `;
+    document.getElementById('previewBox').textContent = data.preview + (data.total_lines > 100 ? '\n...(仅显示前100行)' : '');
+    document.getElementById('downloadBtn').href = `/download/${data.download_name}`;
+    result.style.display = 'block';
+
+  } catch(e) {
+    showError('请求失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+    progress.style.display = 'none';
+  }
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '❌ ' + msg;
+  box.style.display = 'block';
+  document.getElementById('progress').style.display = 'none';
+  document.getElementById('convertBtn').disabled = false;
+}
+</script>
+</body>
+</html>
