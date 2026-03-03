@@ -46,3 +46,5 @@ tv_buy_1_0/effective.png
 .playwright/
 playwright-report/
 env.sh
+out_step3_2025_spec/
+output_all_brands_2026_spec/
