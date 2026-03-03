@@ -1,28 +1,39 @@
 # -*- coding: utf-8 -*-
 """
-tv_buy_1_0/run_reco.py  （最终版｜可一键复制粘贴替换）
+tv_buy_1_0/run_reco.py  （完整版｜可一键复制粘贴替换）
 
 目标：
-- 规则推荐必须永远可跑（即使没装 openai / 没配 LLM）
+- CLI/规则推荐必须永远可跑（即使没装 openai / 没配 LLM）
 - LLM 只做“可选增强”：ENABLE_LLM=True 且依赖可用时才启用
-- ✅ 接入 Excel 导入的 YAML 库（默认 tv_buy_1_0/data_raw/excel_import_all_v1）
-  - 递归扫描所有子目录（TCL/海信/小米/雷鸟/Vidda/创维...）
-  - 展开 variants：每个尺寸一条记录（size_inch/price_cny/price_before_subsidy_cny...）
-- ✅ 可选 sqlite fallback（默认关闭）：TVBUY_USE_SQLITE_FALLBACK=1 才启用
+- ✅ 强制接入 TCL Excel 新库（tv_buy_1_0/data_raw/excel_import_tcl_v2）：
+  - 当 brand=TCL 时，候选只从 excel_import_tcl_v2 目录下的 YAML 读取并展开 variants（每个尺寸独立价格）
+  - ✅ 不再调用旧库 out_step3_2025_spec / output_all_brands_2026_spec，也不走 sqlite tv.sqlite（针对 TCL）
+
+重要修改（本次需求）：
+- ✅ 去掉“尺寸±5”的容差：选哪个尺寸就是哪个尺寸（严格相等）
+  - DB 查询：size_inch = target
+  - TCL YAML：size_inch == target
+  - UI 文案：尺寸=xx寸（不再显示 ≈ / ±5）
+
+新增需求（本次）：
+- ✅ 品牌权重顺序：海信、TCL、VIDDA、雷鸟、创维、小米、索尼（其它品牌权重不要高）
+- ✅ Top3 最终展示：价格从高到低排序
+
+本次新增（你的新需求）：
+- ✅ PS5 的结论/话术不要出现 VRR（因为大部分产品 VRR 数据缺失）
+  - 做法：过滤掉输出中包含 “VRR/可变刷新/变刷新” 的行
+- ✅ 不要出现“不适合”字样：统一改为“备注：”
+- ✅ 一句话结论加强：确保永远有内容、且更像“专业报告”的收尾
 """
 
-from __future__ import annotations
-
 import argparse
+import sqlite3
 import os
 import re
 import sys
 import io
-import time
-import sqlite3
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Tuple, Optional, Iterable
+from typing import Any, Dict, List, Tuple, Optional
 
 import yaml
 
@@ -41,14 +52,9 @@ from tv_buy_1_0.reasons_v2 import (
 from tv_buy_1_0.config.settings import ENABLE_LLM  # noqa: E402
 
 OPENAI_API_KEY = (os.getenv("OPENAI_API_KEY", "") or "").strip()
-OPENAI_BASE_URL = (os.getenv("OPENAI_BASE_URL", "") or "").strip() or None
-OPENAI_MODEL = (
-    (os.getenv("OPENAI_MODEL", "") or "").strip()
-    or (os.getenv("TVBUY_OPENAI_MODEL", "") or "").strip()
-    or "gpt-5.2"
-)
 
 try:
+    # openai-python >= 1.x
     from openai import OpenAI  # noqa: F401
     HAS_OPENAI_PKG = True
 except Exception:
@@ -61,28 +67,22 @@ try:
 except Exception:
     enhance_with_llm = None  # type: ignore
 
-
 # =========================================================
 # Windows / FastAPI 子进程中文输出不炸
 # =========================================================
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-BASE_DIR = Path(__file__).resolve().parent  # => tv_buy_1_0/
-PROFILES = BASE_DIR / "config" / "profiles.yaml"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # => tv_buy_1_0/
+DB = os.path.join(BASE_DIR, "db", "tv.sqlite")
+PROFILES = os.path.join(BASE_DIR, "config", "profiles.yaml")
 
-# ✅ Excel 导入 YAML 目录（默认：excel_import_all_v1）
-YAML_PRODUCTS_DIR = Path(
-    os.environ.get("TVBUY_PRODUCTS_YAML_DIR", str(BASE_DIR / "data_raw" / "excel_import_all_v1"))
-)
+# ✅ TCL Excel 导入目录（你的 import_tcl_excel_to_yaml.py 输出目录）
+TCL_EXCEL_DIR = os.path.join(BASE_DIR, "data_raw", "excel_import_tcl_v2")
 
-# ✅ sqlite fallback（默认关闭）
-USE_SQLITE_FALLBACK = (os.environ.get("TVBUY_USE_SQLITE_FALLBACK", "0").strip() == "1")
-SQLITE_DB = Path(os.environ.get("TVBUY_SQLITE_DB", str(BASE_DIR / "db" / "tv.sqlite")))
+# ✅ 数据源策略开关：TCL 只用 excel_import_tcl_v2
+TCL_SOURCE_ONLY_EXCEL = True
 
-# =========================================================
-# 文案
-# =========================================================
 FIELD_CN = {
     "input_lag_ms_60hz": "输入延迟(60Hz,ms)",
     "hdmi_2_1_ports": "HDMI2.1 口数",
@@ -99,12 +99,225 @@ FIELD_CN = {
 SCENE_DESC = {
     "bright": "明亮客厅（白天观看优先）：亮度/抗反射 > 价格价值 > 分区控光 > 色域。",
     "movie": "电影观影（暗场优先）：分区控光/对比 > 亮度 > 反射/均匀性 > 价格。",
-    "ps5": "PS5 游戏：输入延迟（越低越好）> HDMI2.1/ALLM/VRR > 亮度/分区（HDR游戏观感）。",
+    # ✅ 不再强调 VRR（缺失率高，避免影响可信度）
+    "ps5": "PS5 游戏：输入延迟（越低越好）> HDMI2.1/ALLM > 亮度/分区（HDR游戏观感）。",
 }
 
 # =========================================================
-# utilities
+# ✅ 品牌权重（顺序：海信 > TCL > VIDDA > 雷鸟 > 创维 > 小米 > 索尼；其它压低）
 # =========================================================
+BRAND_MULTIPLIER: Dict[str, float] = {
+    "hisense": 1.12,   # 海信
+    "tcl": 1.10,       # TCL
+    "vidda": 1.08,     # VIDDA
+    "ffalcon": 1.06,   # 雷鸟
+    "skyworth": 1.04,  # 创维
+    "mi": 1.02,        # 小米
+    "sony": 1.01,      # 索尼
+}
+OTHER_BRAND_MULTIPLIER = 0.95  # 其它品牌权重不要高：整体压低一点
+
+# 用于排序时的“品牌优先级”（越小越优先）
+BRAND_RANK: Dict[str, int] = {
+    "hisense": 0,
+    "tcl": 1,
+    "vidda": 2,
+    "ffalcon": 3,
+    "skyworth": 4,
+    "mi": 5,
+    "sony": 6,
+}
+
+# =========================================================
+# ✅ PS5 输出过滤：不展示 VRR（缺失率高导致输出不稳定）
+# =========================================================
+_VRR_BLOCK_KWS = ("vrr", "可变刷新", "变刷新")
+
+
+def _drop_vrr_lines(lines: List[str]) -> List[str]:
+    out: List[str] = []
+    for ln in lines:
+        tl = (ln or "").strip().lower()
+        if any(k in tl for k in _VRR_BLOCK_KWS):
+            continue
+        out.append(ln)
+    return out
+
+
+def _drop_vrr_text(text: str) -> str:
+    if not text:
+        return text
+    keep = []
+    for ln in str(text).splitlines():
+        tl = ln.strip().lower()
+        if any(k in tl for k in _VRR_BLOCK_KWS):
+            continue
+        keep.append(ln)
+    return "\n".join(keep)
+
+
+def _ps5_fallback_reasons(tv: Dict[str, Any]) -> List[str]:
+    r: List[str] = []
+    r.append(f"输入延迟：{fmt(tv.get('input_lag_ms_60hz'), 'ms')}（越低越好；?=未采集）")
+    r.append(f"HDMI2.1：{fmt(tv.get('hdmi_2_1_ports'), '口')}；ALLM：{fmt(tv.get('allm'))}")
+    r.append(f"HDR 游戏观感：亮度 {fmt(tv.get('peak_brightness_nits'), 'nits')}；分区 {fmt(tv.get('local_dimming_zones'))}")
+    return r
+
+
+def _note_clean(note: Any, scene: str) -> str:
+    s = str(note or "").strip()
+    if scene == "ps5":
+        s = _drop_vrr_text(s)
+
+    s = s.replace("不适合：", "").replace("不适合", "").strip(" ：:;；")
+
+    if not s:
+        if scene == "ps5":
+            return "部分关键游戏指标未完整采集，建议以权威评测/实测为准。"
+        if scene == "movie":
+            return "建议结合暗场光晕、均匀性等实测/评测确认最终观感。"
+        if scene == "bright":
+            return "建议结合抗反射与高亮维持能力的评测确认白天观感。"
+        return "参数未完整采集，建议以实测/评测为准。"
+    return s
+
+
+# =========================================================
+# ✅ 一句话结论（加强版：更专业、更完整）
+# =========================================================
+def _price_band_hint(price: Optional[float], budget: Optional[int]) -> str:
+    """
+    输出更像报告：在预算内处于什么位置（顶预算/中位/保守）
+    """
+    if price is None or budget is None or budget <= 0:
+        return ""
+    try:
+        r = float(price) / float(budget)
+    except Exception:
+        return ""
+    if r >= 0.92:
+        return "（接近预算上限，偏“冲顶配”买法）"
+    if r >= 0.70:
+        return "（预算中高位，偏“均衡稳妥”买法）"
+    return "（预算较保守，偏“够用性价比”买法）"
+
+
+def _ps5_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
+    """
+    PS5 强一句话结论（不提 VRR）：
+    低延迟 + HDMI2.1/ALLM + HDR亮度/分区 + 预算定位 + 适合人群
+    """
+    brand = tv.get("brand") or ""
+    model = tv.get("model") or ""
+    size = tv.get("size_inch") or "?"
+    launch = tv.get("launch_date") or "?"
+    price_v = parse_price(tv.get("street_rmb"))
+    price_txt = fmt(tv.get("street_rmb"))
+
+    lag = tv.get("input_lag_ms_60hz")
+    hdmi21 = tv.get("hdmi_2_1_ports")
+    allm = tv.get("allm")
+    bright = tv.get("peak_brightness_nits")
+    zones = tv.get("local_dimming_zones")
+
+    lag_txt = f"{fmt(lag, 'ms')}" if lag is not None else "未采集"
+    hdmi_txt = f"x{fmt(hdmi21)}" if hdmi21 is not None else "口数未采集"
+    allm_txt = fmt(allm)
+
+    hdr_bits = []
+    if bright is not None:
+        hdr_bits.append(f"亮度{fmt(bright, 'nits')}")
+    if zones is not None:
+        hdr_bits.append(f"分区{fmt(zones)}")
+    hdr_txt = " / ".join(hdr_bits) if hdr_bits else "HDR参数未完整采集"
+
+    band = _price_band_hint(price_v, budget)
+
+    # 适合人群（不“尬黑”，只做专业偏好描述）
+    who = []
+    if lag is not None and isinstance(lag, (int, float)) and float(lag) <= 8:
+        who.append("更适合偏竞技/动作类玩家")
+    else:
+        who.append("更适合日常休闲 + 轻度竞技玩家")
+
+    if hdmi21 is not None and int(hdmi21) >= 2:
+        who.append("多设备接入更从容")
+    else:
+        who.append("多设备接入需注意接口规划")
+
+    who_txt = "，".join(who)
+
+    return (
+        f"{brand} {model} {size}寸（首发{launch}）作为 PS5 取向："
+        f"输入延迟 {lag_txt}、HDMI2.1 {hdmi_txt}、ALLM {allm_txt}；"
+        f"HDR 观感看 {hdr_txt}；到手价约￥{price_txt}{band}，{who_txt}。"
+    ).strip()
+
+
+def _movie_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
+    brand = tv.get("brand") or ""
+    model = tv.get("model") or ""
+    size = tv.get("size_inch") or "?"
+    launch = tv.get("launch_date") or "?"
+    price_v = parse_price(tv.get("street_rmb"))
+    price_txt = fmt(tv.get("street_rmb"))
+
+    zones = tv.get("local_dimming_zones")
+    bright = tv.get("peak_brightness_nits")
+    uni = tv.get("uniformity_gray50_max_dev")
+    refl = tv.get("reflection_specular")
+
+    bits = []
+    if zones is not None:
+        bits.append(f"分区{fmt(zones)}（控光/暗场层次更稳）")
+    if bright is not None:
+        bits.append(f"HDR亮度{fmt(bright, 'nits')}")
+    if uni is not None:
+        bits.append(f"均匀性{fmt(uni)}")
+    if refl is not None:
+        bits.append(f"反射{fmt(refl)}")
+
+    core = "；".join(bits) if bits else "关键观影参数未完整采集"
+    band = _price_band_hint(price_v, budget)
+
+    return (
+        f"{brand} {model} {size}寸（首发{launch}）更偏电影观影："
+        f"{core}；到手价约￥{price_txt}{band}，适合追求暗场层次与观影氛围的用户。"
+    ).strip()
+
+
+def _bright_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
+    brand = tv.get("brand") or ""
+    model = tv.get("model") or ""
+    size = tv.get("size_inch") or "?"
+    launch = tv.get("launch_date") or "?"
+    price_v = parse_price(tv.get("street_rmb"))
+    price_txt = fmt(tv.get("street_rmb"))
+
+    bright = tv.get("peak_brightness_nits")
+    refl = tv.get("reflection_specular")
+    zones = tv.get("local_dimming_zones")
+
+    bits = []
+    if bright is not None:
+        bits.append(f"亮度{fmt(bright, 'nits')}（白天更抗环境光）")
+    if refl is not None:
+        bits.append(f"反射{fmt(refl)}（越低越好）")
+    if zones is not None:
+        bits.append(f"分区{fmt(zones)}（控光更稳，亮暗切换更干净）")
+
+    core = "；".join(bits) if bits else "白天观感相关参数未完整采集"
+    band = _price_band_hint(price_v, budget)
+
+    return (
+        f"{brand} {model} {size}寸（首发{launch}）更偏明亮客厅："
+        f"{core}；到手价约￥{price_txt}{band}，适合白天观看/客厅开灯场景。"
+    ).strip()
+
+
+# =========================
+# utilities
+# =========================
 def months_ago(yyyymm: Any) -> Optional[int]:
     if not yyyymm:
         return None
@@ -159,6 +372,42 @@ def norm_neg(x, lo, hi) -> float:
     return 1.0 - norm_pos(x, lo, hi)
 
 
+def norm_brand(brand: Optional[str]) -> Optional[str]:
+    if not brand:
+        return None
+    b = str(brand).strip().lower()
+
+    if b in ("tcl", "t.c.l"):
+        return "tcl"
+    if b in ("mi", "小米", "xiaomi", "redmi", "红米"):
+        return "mi"
+    if b in ("hisense", "海信"):
+        return "hisense"
+    if b in ("sony", "索尼"):
+        return "sony"
+    if b in ("vidda", "vidda发现", "发现"):
+        return "vidda"
+    if b in ("雷鸟", "ffalcon", "f-falcon", "falcon", "f falcon"):
+        return "ffalcon"
+    if b in ("创维", "skyworth", "酷开", "coocaa"):
+        return "skyworth"
+    return b
+
+
+def brand_multiplier(brand: Optional[str]) -> float:
+    b = norm_brand(brand)
+    if not b:
+        return OTHER_BRAND_MULTIPLIER
+    return float(BRAND_MULTIPLIER.get(b, OTHER_BRAND_MULTIPLIER))
+
+
+def brand_rank(brand: Optional[str]) -> int:
+    b = norm_brand(brand)
+    if not b:
+        return 999
+    return int(BRAND_RANK.get(b, 999))
+
+
 def launch_year_from_date(d: Any) -> int:
     if not d:
         return 0
@@ -169,7 +418,6 @@ def launch_year_from_date(d: Any) -> int:
 
 
 def parse_price(p: Any) -> Optional[float]:
-    """支持 12999 / '12,999' / '¥12999' / '￥12999' """
     if p is None:
         return None
     if isinstance(p, (int, float)):
@@ -185,7 +433,6 @@ def parse_price(p: Any) -> Optional[float]:
 
 
 def date_rank(d: Any) -> int:
-    """YYYY-MM / YYYY-MM-DD -> yyyymmdd int, 越大越新；无日期=0"""
     if not d:
         return 0
     s = str(d).strip()
@@ -210,348 +457,14 @@ def _safe_int(x: Any) -> Optional[int]:
         s = str(x).strip()
         if not s:
             return None
-        s = s.replace(",", "")
-        s = re.sub(r"[^\d.]", "", s)
-        if not s:
-            return None
-        return int(float(s))
+        s = re.sub(r"[^\d]", "", s)
+        return int(s) if s else None
     except Exception:
         return None
 
 
-def _normalize_date_like(x: Any) -> Optional[str]:
-    """
-    统一到 YYYY-MM 或 YYYY-MM-DD（尽量 YYYY-MM）
-    """
-    if not x:
-        return None
-    s = str(x).strip()
-    if not s:
-        return None
-    s = s.replace(".", "-").replace("/", "-")
-    m = re.match(r"^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$", s)
-    if m:
-        y = int(m.group(1))
-        mm = int(m.group(2))
-        dd = m.group(3)
-        if dd is None:
-            return f"{y:04d}-{mm:02d}"
-        return f"{y:04d}-{mm:02d}-{int(dd):02d}"
-    m2 = re.search(r"(\d{4})[-/\.](\d{1,2})", s)
-    if m2:
-        y = int(m2.group(1))
-        mm = int(m2.group(2))
-        return f"{y:04d}-{mm:02d}"
-    return None
-
-
-def _normalize_brand(brand: Optional[str]) -> Optional[str]:
-    if not brand:
-        return None
-    s = str(brand).strip()
-    if not s:
-        return None
-    sl = s.lower()
-    if sl in ("tcl", "t.c.l"):
-        return "TCL"
-    if sl in ("hisense",):
-        return "海信"
-    if sl in ("xiaomi", "mi"):
-        return "小米"
-    if sl in ("ffalcon", "f-falcon", "falcon"):
-        return "雷鸟"
-    if sl in ("vidda",):
-        return "Vidda"
-    return s
-
-
-def _flatten_yaml_obj(obj: Any) -> List[Dict[str, Any]]:
-    """
-    兼容 excel_import_all_v1 的单文件结构：
-      - dict: {brand, model, first_release, spec, variants:[{size_inch, price_cny, ...}, ...]}
-    也兼容其它结构：
-      - list[dict]
-      - dict{items:[...]} / dict{rows:[...]} / dict{products:[...]} / dict{data:[...]} / dict{models:[...]}
-      - dict 单条
-    """
-    if obj is None:
-        return []
-    if isinstance(obj, list):
-        return [x for x in obj if isinstance(x, dict)]
-    if isinstance(obj, dict):
-        for k in ("items", "rows", "products", "data", "models"):
-            v = obj.get(k)
-            if isinstance(v, list):
-                return [x for x in v if isinstance(x, dict)]
-        return [obj]
-    return []
-
-
-def _pick(d: Dict[str, Any], keys: Iterable[str]) -> Any:
-    for k in keys:
-        if k in d and d[k] not in (None, "", []):
-            return d[k]
-    return None
-
-
-def _expand_excel_import_row(row: Dict[str, Any], source_name: str) -> List[Dict[str, Any]]:
-    """
-    把 excel_import_all_v1 的单条结构展开为“每个尺寸一行”:
-      - base: brand/model/first_release/spec...
-      - variants: size_inch/price_cny/peak_brightness_nits/dimming_zones/price_before_subsidy_cny...
-    输出字段（尽量对齐 run_reco 旧字段）：
-      brand, model, size_inch, street_rmb, launch_date, hdmi_2_1_ports, allm, vrr,
-      peak_brightness_nits, local_dimming_zones, ...
-    """
-    brand = _normalize_brand(_pick(row, ["brand", "品牌"])) or "未知"
-    base_model = _pick(row, ["model", "型号", "机型", "name"])
-    if base_model is None:
-        base_model = ""
-    base_model = str(base_model).strip()
-
-    launch_date = _normalize_date_like(_pick(row, ["first_release", "发布时间", "发布", "launch_date", "上市时间", "首发", "release"]))
-
-    spec = row.get("spec") if isinstance(row.get("spec"), dict) else {}
-    hdmi_2_1_ports = None
-    allm = None
-    vrr = None
-    try:
-        hdmi = spec.get("hdmi") if isinstance(spec.get("hdmi"), dict) else {}
-        hdmi_2_1_ports = _safe_int(hdmi.get("hdmi_2_1_ports"))
-        # 这里不强行从文本猜 allm/vrr，避免编造；留 None
-    except Exception:
-        pass
-
-    variants = row.get("variants")
-    if isinstance(variants, list) and base_model:
-        out: List[Dict[str, Any]] = []
-        for v in variants:
-            if not isinstance(v, dict):
-                continue
-            size_inch = _safe_int(v.get("size_inch"))
-            if not size_inch:
-                continue
-            # 价格：优先国补价 price_cny
-            price_cny = _safe_int(v.get("price_cny"))
-            # 兼容一些字段名
-            if price_cny is None:
-                price_cny = _safe_int(v.get("price")) or _safe_int(v.get("street_rmb"))
-
-            peak = _safe_int(v.get("peak_brightness_nits"))
-            zones = _safe_int(v.get("dimming_zones"))
-            if zones is None:
-                zones = _safe_int(v.get("local_dimming_zones"))
-
-            # 模型名：不重复前缀就加尺寸
-            model_name = base_model
-            if not re.match(r"^\d{2,3}", model_name):
-                model_name = f"{size_inch}{model_name}"
-
-            rec: Dict[str, Any] = {
-                "brand": brand,
-                "model": model_name,
-                "size_inch": int(size_inch),
-                "street_rmb": price_cny,
-                "launch_date": launch_date,
-                "input_lag_ms_60hz": None,
-                "hdmi_2_1_ports": hdmi_2_1_ports,
-                "allm": allm,
-                "vrr": vrr,
-                "peak_brightness_nits": peak,
-                "local_dimming_zones": zones,
-                "_source": f"yaml:{source_name}",
-                "_variant": v,
-                "_spec": spec,
-            }
-            out.append(rec)
-        if out:
-            return out
-
-    # 没 variants 的兜底
-    return [
-        {
-            "brand": brand,
-            "model": base_model or None,
-            "size_inch": _safe_int(_pick(row, ["size_inch", "尺寸", "size", "inch"])),
-            "street_rmb": _safe_int(_pick(row, ["price_cny", "价格", "price", "street_rmb"])),
-            "launch_date": launch_date,
-            "input_lag_ms_60hz": None,
-            "hdmi_2_1_ports": hdmi_2_1_ports,
-            "allm": allm,
-            "vrr": vrr,
-            "peak_brightness_nits": _safe_int(_pick(row, ["peak_brightness_nits"])),
-            "local_dimming_zones": _safe_int(_pick(row, ["dimming_zones", "local_dimming_zones"])),
-            "_source": f"yaml:{source_name}",
-            "_spec": spec,
-        }
-    ]
-
-
-_yaml_cache: Dict[str, Any] = {"ts": 0.0, "files_sig": None, "items": [], "loaded": 0}
-_YAML_CACHE_TTL = 2.0  # 秒
-
-
-def load_all_yaml_products() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    now = time.time()
-    if now - float(_yaml_cache.get("ts", 0.0)) < _YAML_CACHE_TTL:
-        return list(_yaml_cache.get("items") or []), {
-            "yaml_dir": str(YAML_PRODUCTS_DIR),
-            "yaml_loaded": int(_yaml_cache.get("loaded") or 0),
-        }
-
-    paths: List[str] = []
-    if YAML_PRODUCTS_DIR.exists():
-        paths.extend([str(p) for p in YAML_PRODUCTS_DIR.rglob("*.yml")])
-        paths.extend([str(p) for p in YAML_PRODUCTS_DIR.rglob("*.yaml")])
-
-    sig = "|".join([f"{p}:{os.path.getmtime(p)}" for p in sorted(paths)]) if paths else ""
-    if sig and sig == _yaml_cache.get("files_sig"):
-        _yaml_cache["ts"] = now
-        return list(_yaml_cache.get("items") or []), {
-            "yaml_dir": str(YAML_PRODUCTS_DIR),
-            "yaml_loaded": int(_yaml_cache.get("loaded") or 0),
-        }
-
-    items: List[Dict[str, Any]] = []
-    loaded = 0
-
-    for p in sorted(paths):
-        try:
-            text = Path(p).read_text(encoding="utf-8")
-        except Exception:
-            try:
-                text = Path(p).read_text(encoding="utf-8-sig")
-            except Exception:
-                continue
-
-        try:
-            obj = yaml.safe_load(text)
-        except Exception:
-            continue
-
-        rows = _flatten_yaml_obj(obj)
-        if not rows:
-            continue
-
-        loaded += 1
-        for row in rows:
-            for it in _expand_excel_import_row(row, source_name=Path(p).name):
-                # 必须要有 brand/model/size 的基本信息
-                if not it.get("brand") or not it.get("model") or not it.get("size_inch"):
-                    continue
-                items.append(it)
-
-    _yaml_cache.update({"ts": now, "files_sig": sig, "items": items, "loaded": loaded})
-    return list(items), {"yaml_dir": str(YAML_PRODUCTS_DIR), "yaml_loaded": loaded}
-
-
 # =========================
-# sqlite fallback（可选）
-# =========================
-def _sqlite_find_table_and_cols(conn: sqlite3.Connection) -> Tuple[Optional[str], Dict[str, str]]:
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = [r[0] for r in cur.fetchall() if r and r[0]]
-
-    prefer = ["tv", "tvs", "tv_models", "models", "products"]
-    tables_sorted = sorted(tables, key=lambda x: (0 if x in prefer else 1, x))
-
-    def cols_of(t: str) -> List[str]:
-        try:
-            cur.execute(f"PRAGMA table_info({t})")
-            return [r[1] for r in cur.fetchall() if r and len(r) > 1]
-        except Exception:
-            return []
-
-    brand_keys = ["brand", "品牌"]
-    model_keys = ["model", "型号", "name", "机型"]
-    size_keys = ["size_inch", "size", "尺寸", "inch"]
-    price_keys = ["price_cny", "price", "价格", "street_rmb"]
-    launch_keys = ["launch_date", "release_date", "首发", "发布时间", "publish_date"]
-
-    for t in tables_sorted:
-        cols = cols_of(t)
-        if not cols:
-            continue
-
-        def pick(keys: List[str]) -> Optional[str]:
-            for k in keys:
-                if k in cols:
-                    return k
-            return None
-
-        bm = pick(brand_keys)
-        mm = pick(model_keys)
-        sm = pick(size_keys)
-        pm = pick(price_keys)
-        if bm and mm and sm and pm:
-            lm = pick(launch_keys)
-            return t, {"brand": bm, "model": mm, "size": sm, "price": pm, "launch": lm or ""}
-
-    return None, {}
-
-
-def sqlite_query_products(size: int, brand: Optional[str] = None, budget: Optional[int] = None) -> List[Dict[str, Any]]:
-    if not USE_SQLITE_FALLBACK:
-        return []
-    if not SQLITE_DB.exists():
-        return []
-
-    conn = sqlite3.connect(str(SQLITE_DB))
-    conn.row_factory = sqlite3.Row
-    try:
-        tname, cmap = _sqlite_find_table_and_cols(conn)
-        if not tname:
-            return []
-
-        lo, hi = size - 5, size + 5
-
-        where = [f"{cmap['size']} BETWEEN ? AND ?"]
-        args: List[Any] = [int(lo), int(hi)]
-
-        if brand:
-            where.append(f"{cmap['brand']} = ?")
-            args.append(brand)
-        if budget is not None:
-            where.append(f"{cmap['price']} <= ?")
-            args.append(int(budget))
-
-        where_sql = " WHERE " + " AND ".join(where)
-        sql = f"SELECT * FROM {tname}{where_sql} ORDER BY {cmap['price']} ASC LIMIT 500"
-        rows = conn.execute(sql, args).fetchall()
-
-        out: List[Dict[str, Any]] = []
-        for r in rows:
-            d = dict(r)
-            b = _normalize_brand(d.get(cmap["brand"]))
-            m = d.get(cmap["model"])
-            s = _safe_int(d.get(cmap["size"]))
-            p = _safe_int(d.get(cmap["price"]))
-            launch = d.get(cmap["launch"]) if cmap.get("launch") else None
-
-            out.append(
-                {
-                    "brand": b,
-                    "model": m,
-                    "size_inch": s,
-                    "street_rmb": p,
-                    "launch_date": _normalize_date_like(launch) if launch else None,
-                    "input_lag_ms_60hz": d.get("input_lag_ms_60hz"),
-                    "hdmi_2_1_ports": d.get("hdmi_2_1_ports"),
-                    "allm": d.get("allm"),
-                    "vrr": d.get("vrr"),
-                    "peak_brightness_nits": d.get("peak_brightness_nits"),
-                    "local_dimming_zones": d.get("local_dimming_zones"),
-                    "_source": f"sqlite:{SQLITE_DB.name}",
-                }
-            )
-        return out
-    finally:
-        conn.close()
-
-
-# =========================
-# profiles & scoring
+# data loading
 # =========================
 def load_profile(scene: str):
     with open(PROFILES, "r", encoding="utf-8") as f:
@@ -568,73 +481,162 @@ def load_profile(scene: str):
 
 
 def minmax(cands: List[Dict[str, Any]], key: str):
-    vals = []
-    for c in cands:
-        v = c.get(key)
-        if v is None:
-            continue
-        try:
-            vals.append(float(v))
-        except Exception:
-            continue
+    vals = [c.get(key) for c in cands if c.get(key) is not None]
     if not vals:
         return 0.0, 1.0
     return float(min(vals)), float(max(vals))
 
 
-def _merge_products(yaml_items: List[Dict[str, Any]], sqlite_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    def norm_key(it: Dict[str, Any]) -> str:
-        b = str(it.get("brand") or "").strip().lower()
-        m = str(it.get("model") or "").strip().lower().replace(" ", "")
-        s = str(it.get("size_inch") or "").strip()
-        return f"{b}::{m}::{s}"
-
-    mp: Dict[str, Dict[str, Any]] = {}
-    for it in sqlite_items:
-        k = norm_key(it)
-        if k and k not in mp:
-            mp[k] = it
-    for it in yaml_items:
-        k = norm_key(it)
-        if not k:
-            continue
-        mp[k] = it  # YAML 覆盖 sqlite
-    return list(mp.values())
+# =========================
+# ✅ TCL Excel YAML source
+# =========================
+def _load_yaml_file(path: str) -> Optional[Dict[str, Any]]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            obj = yaml.safe_load(f)
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
 
 
-def all_by_size(size: int, brand: Optional[str] = None) -> List[Dict[str, Any]]:
-    yaml_items, _ = load_all_yaml_products()
+def _normalize_first_release(x: Any) -> Optional[str]:
+    if not x:
+        return None
+    s = str(x).strip()
+    s = s.replace(".", "-").replace("/", "-")
+    m = re.match(r"^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$", s)
+    if not m:
+        m2 = re.search(r"(\d{4})[-/\.](\d{1,2})", s)
+        if not m2:
+            return None
+        y = int(m2.group(1))
+        mm = int(m2.group(2))
+        return f"{y:04d}-{mm:02d}"
+    y = int(m.group(1))
+    mm = int(m.group(2))
+    dd = m.group(3)
+    if dd is None:
+        return f"{y:04d}-{mm:02d}"
+    return f"{y:04d}-{mm:02d}-{int(dd):02d}"
 
-    lo, hi = size - 5, size + 5
-    out_yaml = [
-        r
-        for r in yaml_items
-        if isinstance(r.get("size_inch"), int)
-        and lo <= int(r["size_inch"]) <= hi
-        and (brand is None or r.get("brand") == _normalize_brand(brand))
-    ]
 
-    out_sqlite = sqlite_query_products(size=size, brand=_normalize_brand(brand) if brand else None) if USE_SQLITE_FALLBACK else []
-    return _merge_products(out_yaml, out_sqlite)
+def _build_tcl_model_name(base_model: str, size_inch: int) -> str:
+    bm = (base_model or "").strip()
+    if not bm:
+        return f"{size_inch}TCL"
+    if re.match(r"^\d{2,3}", bm):
+        return bm
+    return f"{size_inch}{bm}"
 
 
-def apply_filters(
-    cands: List[Dict[str, Any]],
-    brand: Optional[str] = None,
-    budget: Optional[int] = None,
-) -> List[Dict[str, Any]]:
+def load_tcl_excel_variants() -> List[Dict[str, Any]]:
+    if not os.path.isdir(TCL_EXCEL_DIR):
+        return []
+
     out: List[Dict[str, Any]] = []
-    nb = _normalize_brand(brand) if brand else None
+    for fn in os.listdir(TCL_EXCEL_DIR):
+        if not (fn.lower().endswith(".yaml") or fn.lower().endswith(".yml")):
+            continue
+        path = os.path.join(TCL_EXCEL_DIR, fn)
+        obj = _load_yaml_file(path)
+        if not obj:
+            continue
+
+        brand = obj.get("brand") or "TCL"
+        base_model = obj.get("model") or ""
+        first_release = _normalize_first_release(obj.get("first_release"))
+        spec = obj.get("spec") if isinstance(obj.get("spec"), dict) else {}
+        variants = obj.get("variants") if isinstance(obj.get("variants"), list) else []
+
+        hdmi_2_1_ports = None
+        allm = None
+        vrr = None
+        peak_brightness_nits = None
+        local_dimming_zones = None
+
+        try:
+            hdmi = spec.get("hdmi") if isinstance(spec.get("hdmi"), dict) else {}
+            hdmi_2_1_ports = _safe_int(hdmi.get("hdmi_2_1_ports"))
+        except Exception:
+            pass
+
+        for v in variants:
+            if not isinstance(v, dict):
+                continue
+            size_inch = _safe_int(v.get("size_inch"))
+            if not size_inch:
+                continue
+
+            price_cny = _safe_int(v.get("price_cny"))
+            peak = _safe_int(v.get("peak_brightness_nits"))
+            zones = _safe_int(v.get("dimming_zones"))
+
+            model_name = _build_tcl_model_name(str(base_model), int(size_inch))
+
+            rec: Dict[str, Any] = {
+                "brand": brand,
+                "model": model_name,
+                "size_inch": int(size_inch),
+                "street_rmb": price_cny,
+                "launch_date": first_release,
+                "input_lag_ms_60hz": None,
+                "hdmi_2_1_ports": hdmi_2_1_ports,
+                "allm": allm,
+                "vrr": vrr,
+                "peak_brightness_nits": peak if peak is not None else peak_brightness_nits,
+                "local_dimming_zones": zones if zones is not None else local_dimming_zones,
+                "_source": f"excel:{fn}",
+                "_source_path": path,
+                "_base_model": base_model,
+                "_variant": v,
+                "_spec": spec,
+            }
+            out.append(rec)
+
+    return out
+
+
+# =========================
+# ✅ STRICT size match (NO ±5)
+# =========================
+def all_by_size_from_db(target: int) -> List[Dict[str, Any]]:
+    sql = """
+    SELECT *
+    FROM tv
+    WHERE launch_date IS NOT NULL
+      AND size_inch = ?
+    """
+    conn = sqlite3.connect(DB)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(sql, (int(target),)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def all_by_size(target: int, brand: Optional[str] = None) -> List[Dict[str, Any]]:
+    bkey = norm_brand(brand)
+    if bkey == "tcl":
+        xs = load_tcl_excel_variants()
+        return [
+            r for r in xs
+            if isinstance(r.get("size_inch"), int) and int(r["size_inch"]) == int(target)
+        ]
+    return all_by_size_from_db(target)
+
+
+def apply_filters(cands: List[Dict[str, Any]], brand: Optional[str] = None, budget: Optional[int] = None) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    bkey = norm_brand(brand)
 
     for tv in cands:
-        if nb:
-            if _normalize_brand(tv.get("brand")) != nb:
+        if bkey:
+            tvb = norm_brand(tv.get("brand"))
+            if tvb != bkey:
                 continue
 
         if budget is not None:
             price = parse_price(tv.get("street_rmb"))
             if price is None:
-                # 没价格就无法做“预算≤”过滤：直接剔除（保持你之前逻辑一致）
                 continue
             if price > float(budget):
                 continue
@@ -647,16 +649,7 @@ def apply_filters(
 # =========================
 # candidates preview (for chat UI)
 # =========================
-def list_candidates(
-    size: int,
-    brand: Optional[str] = None,
-    budget: Optional[int] = None,
-    limit: int = 10,
-) -> Tuple[int, List[Dict[str, Any]]]:
-    """
-    返回：过滤后的候选数量 + 前 limit 条
-    排序：2026 优先 > 2025 > 其它；再按日期新->旧；再按价格低->高
-    """
+def list_candidates(size: int, brand: Optional[str] = None, budget: Optional[int] = None, limit: int = 10) -> Tuple[int, List[Dict[str, Any]]]:
     cands = apply_filters(all_by_size(size, brand=brand), brand=brand, budget=budget)
 
     def year_bucket(tv: Dict[str, Any]) -> int:
@@ -678,25 +671,17 @@ def list_candidates(
             price_rank(tv),
         )
     )
-
-    total = len(cands)
-    return total, cands[:limit]
+    return len(cands), cands[:limit]
 
 
-def format_candidates(
-    size: int,
-    total: int,
-    cands: List[Dict[str, Any]],
-    brand: Optional[str] = None,
-    budget: Optional[int] = None,
-) -> str:
+def format_candidates(size: int, total: int, cands: List[Dict[str, Any]], brand: Optional[str] = None, budget: Optional[int] = None) -> str:
     head = f"📌 当前筛选候选：{total} 台"
     cond = []
     if brand:
         cond.append(f"品牌={brand}")
     if budget is not None:
         cond.append(f"预算≤{budget}")
-    cond.append(f"尺寸≈{size}寸(±5)")
+    cond.append(f"尺寸={size}寸")
     head += "（" + "，".join(cond) + "）"
 
     if total == 0:
@@ -713,13 +698,7 @@ def format_candidates(
 # =========================
 # scoring recommendation
 # =========================
-def get_top3(
-    size: int,
-    scene: str,
-    brand: Optional[str] = None,
-    budget: Optional[int] = None,
-    year_prefer: int = 2026,
-) -> List[Dict[str, Any]]:
+def get_top3(size: int, scene: str, brand: Optional[str] = None, budget: Optional[int] = None, year_prefer: int = 2026) -> List[Dict[str, Any]]:
     weights, negative_metrics, boolean_metrics, penalties = load_profile(scene)
 
     cands = apply_filters(all_by_size(size, brand=brand), brand=brand, budget=budget)
@@ -780,15 +759,21 @@ def get_top3(
         if age is not None and age > 12:
             score *= 0.92
 
+        bmul = brand_multiplier(tv.get("brand"))
+        score *= bmul
+
         tv2 = dict(tv)
         tv2["_score"] = score
         tv2["_year"] = launch_year_from_date(tv.get("launch_date"))
         tv2["_parts"] = parts
+        tv2["_brand_rank"] = brand_rank(tv.get("brand"))
+        tv2["_brand_mul"] = bmul
         ranked.append(tv2)
 
     ranked.sort(
         key=lambda x: (
             0 if x.get("_year") == year_prefer else 1,
+            int(x.get("_brand_rank") or 999),
             -float(x.get("_score") or 0.0),
             -date_rank(x.get("launch_date")),
         )
@@ -803,42 +788,40 @@ def reasons(tv: Dict[str, Any], scene: str) -> Tuple[List[str], str]:
     r: List[str] = []
     if scene == "ps5":
         r.append(f"输入延迟：{fmt(tv.get('input_lag_ms_60hz'), 'ms')}（越低越好）")
-        r.append(f"HDMI2.1：{fmt(tv.get('hdmi_2_1_ports'), '口')}；ALLM：{fmt(tv.get('allm'))}；VRR：{fmt(tv.get('vrr'))}")
+        r.append(f"HDMI2.1：{fmt(tv.get('hdmi_2_1_ports'), '口')}；ALLM：{fmt(tv.get('allm'))}")
         r.append(f"HDR 游戏观感：亮度 {fmt(tv.get('peak_brightness_nits'), 'nits')}；分区 {fmt(tv.get('local_dimming_zones'))}")
-        not_fit = []
+        note = []
         if tv.get("input_lag_ms_60hz") is None:
-            not_fit.append("输入延迟数据缺失（建议线下确认/等实测）。")
+            note.append("输入延迟数据缺失，建议参考实测/评测。")
         if (tv.get("hdmi_2_1_ports") or 0) < 2:
-            not_fit.append("HDMI2.1 口数偏少。")
-        if tv.get("vrr") is None:
-            not_fit.append("VRR 数据缺失（建议确认是否支持）。")
-        if not not_fit:
-            not_fit.append("整体均衡。")
-        return r, " ".join(not_fit)
+            note.append("HDMI2.1 口数偏少，多设备接入需注意。")
+        if not note:
+            note.append("整体参数匹配 PS5 日常游玩。")
+        return r, " ".join(note)
 
     if scene == "bright":
         r.append(f"白天抗环境光：亮度 {fmt(tv.get('peak_brightness_nits'), 'nits')}")
         r.append(f"反射：{fmt(tv.get('reflection_specular'))}（越低越好；? 表示未采集）")
         r.append(f"暗场/对比辅助：分区 {fmt(tv.get('local_dimming_zones'))}；价格￥{fmt(tv.get('street_rmb'))}")
-        return r, "夜间极致暗场党建议补齐均匀性/光晕实测。"
+        return r, "建议结合抗反射与高亮维持能力的评测确认白天观感。"
 
     if scene == "movie":
         r.append(f"暗场控光：分区 {fmt(tv.get('local_dimming_zones'))}")
         r.append(f"HDR 亮度：{fmt(tv.get('peak_brightness_nits'), 'nits')}")
         r.append(f"均匀性/反射：均匀性 {fmt(tv.get('uniformity_gray50_max_dev'))}；反射 {fmt(tv.get('reflection_specular'))}")
-        return r, "白天很亮的客厅建议用 bright 再跑一次。"
+        return r, "建议结合暗场光晕、均匀性等实测/评测确认最终观感。"
 
-    return r, "—"
+    return r, "参数未完整采集，建议以实测/评测为准。"
 
 
-def recommend_text(
-    size: int,
-    scene: str,
-    brand: Optional[str] = None,
-    budget: Optional[int] = None,
-    year_prefer: int = 2026,
-) -> str:
+def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: Optional[int] = None, year_prefer: int = 2026) -> str:
     top3 = get_top3(size=size, scene=scene, brand=brand, budget=budget, year_prefer=year_prefer)
+
+    def _p(tv: Dict[str, Any]) -> float:
+        v = parse_price(tv.get("street_rmb"))
+        return float(v) if v is not None else -1.0
+
+    top3_display = sorted(top3, key=lambda x: _p(x), reverse=True)
 
     head = f"电视选购 1.0 | {size} 寸 | 场景={scene}"
     if brand:
@@ -849,17 +832,19 @@ def recommend_text(
 
     lines = [head, SCENE_DESC.get(scene, "")]
 
-    if not top3:
+    if not top3_display:
         lines.append("")
         lines.append("⚠️ 没有找到符合【当前条件】的机型。")
+        if budget is not None and year_prefer:
+            lines.append(f"提示：可能是 {year_prefer} 年机型全部超预算/缺价格（已硬过滤）。")
         lines.append("你可以：放宽品牌 / 提高预算 / 换尺寸。")
         return "\n".join(lines)
 
     lines.append("")
-    lines.append("Top 3 推荐（过滤后候选集内排序）")
+    lines.append("Top 3 推荐（最终展示：按价格从高到低）")
     lines.append("-" * 70)
 
-    for i, tv in enumerate(top3, 1):
+    for i, tv in enumerate(top3_display, 1):
         warn = ""
         if tv.get("peak_brightness_nits") and isinstance(tv["peak_brightness_nits"], (int, float)) and tv["peak_brightness_nits"] > 6000:
             warn = " ⚠️亮度口径偏激进"
@@ -867,40 +852,77 @@ def recommend_text(
         lines.append(f"{i}. {title} | 首发 {tv.get('launch_date')} | ￥{fmt(tv.get('street_rmb'))}{warn}")
 
         if scene == "ps5":
-            rs, not_fit = reasons_ps5_v2(tv)
+            rs, note = reasons_ps5_v2(tv)
+            rs = _drop_vrr_lines(list(rs or []))
+            note = _drop_vrr_text(str(note or ""))
+
+            if len([x for x in rs if (x or "").strip()]) < 2:
+                rs = _ps5_fallback_reasons(tv)
+
+            note = _note_clean(note, scene="ps5")
+
         elif scene == "movie":
-            rs, not_fit = reasons_movie_v2(tv)
+            rs, note = reasons_movie_v2(tv)
+            note = _note_clean(note, scene="movie")
         elif scene == "bright":
-            rs, not_fit = reasons_bright_v2(tv)
+            rs, note = reasons_bright_v2(tv)
+            note = _note_clean(note, scene="bright")
         else:
-            rs, not_fit = reasons(tv, scene)
+            rs, note = reasons(tv, scene)
+            note = _note_clean(note, scene=scene)
 
         for line in rs:
             lines.append(f"   - {line}")
-        lines.append(f"   - 不适合：{not_fit}")
+
+        lines.append(f"   - 备注：{note}")
         lines.append("")
 
+    # ✅ 一句话结论（加强版）
     lines.append("一句话结论：")
+    summary = ""
     if scene == "ps5":
-        lines.append(top1_summary_ps5(top3[0]))
+        try:
+            summary = _drop_vrr_text(top1_summary_ps5(top3_display[0]) or "")
+        except Exception:
+            summary = ""
+        summary = (summary or "").strip()
+        if not summary:
+            summary = _ps5_strong_summary(top3_display[0], budget)
+
     elif scene == "movie":
-        lines.append(top1_summary_movie(top3[0]))
+        try:
+            summary = (top1_summary_movie(top3_display[0]) or "").strip()
+        except Exception:
+            summary = ""
+        if not summary:
+            summary = _movie_strong_summary(top3_display[0], budget)
+
     elif scene == "bright":
-        lines.append(top1_summary_bright(top3[0]))
+        try:
+            summary = (top1_summary_bright(top3_display[0]) or "").strip()
+        except Exception:
+            summary = ""
+        if not summary:
+            summary = _bright_strong_summary(top3_display[0], budget)
+
     else:
-        lines.append(top1_summary_ps5(top3[0]))
+        summary = _ps5_strong_summary(top3_display[0], budget)
+
+    lines.append(summary)
 
     base_text = "\n".join(lines)
 
     if ENABLE_LLM and HAS_LLM and enhance_with_llm is not None:
         try:
             llm_text = enhance_with_llm(
-                top3=top3,
+                top3=top3_display,
                 size=size,
                 scene=scene,
                 budget=budget,
             )
-            return base_text + "\n\n———\n\n🤖 AI 增强解读：\n" + llm_text
+            if scene == "ps5":
+                llm_text = _drop_vrr_text(llm_text or "")
+            return base_text + "\n\n———\n\n🤖 AI 增强解读：\n" + (llm_text or "")
         except Exception as e:
             return base_text + f"\n\n⚠️ LLM 增强失败，已回退规则引擎结果：{e}"
 
@@ -929,12 +951,21 @@ def main():
     ap.add_argument("--show_candidates", action="store_true", help="只展示当前筛选候选(前10)")
     args = ap.parse_args()
 
-    if not PROFILES.exists():
+    if norm_brand(args.brand) != "tcl":
+        if not os.path.exists(DB):
+            raise SystemExit(f"DB not found: {DB}")
+
+    if not os.path.exists(PROFILES):
         raise SystemExit(f"profiles.yaml not found: {PROFILES}")
 
-    # YAML 目录检查：不存在也不直接退出（因为你可能想只走 sqlite fallback）
-    if not YAML_PRODUCTS_DIR.exists():
-        print(f"⚠️ YAML dir not found: {YAML_PRODUCTS_DIR}", file=sys.stderr)
+    if norm_brand(args.brand) == "tcl" and TCL_SOURCE_ONLY_EXCEL:
+        if not os.path.isdir(TCL_EXCEL_DIR):
+            raise SystemExit(f"[TCL] excel yaml dir not found: {TCL_EXCEL_DIR}")
+        has_yaml = any(
+            fn.lower().endswith((".yaml", ".yml")) for fn in os.listdir(TCL_EXCEL_DIR)
+        )
+        if not has_yaml:
+            raise SystemExit(f"[TCL] no yaml files in: {TCL_EXCEL_DIR}")
 
     if args.show_candidates:
         total, cands = list_candidates(args.size, brand=args.brand, budget=args.budget, limit=10)

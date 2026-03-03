@@ -6,14 +6,13 @@ import os
 import re
 import time
 import sqlite3
-import importlib
 import io
 import sys
 from uuid import uuid4
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any, Tuple, List, Iterable
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -24,13 +23,6 @@ from pydantic import BaseModel
 # ✅ 安全处理 stdout/stderr：避免 uvicorn 启动时 stderr 被关闭导致 lost sys.stderr
 # =========================================================
 def _safe_rewrap_stream(stream, encoding: str = "utf-8"):
-    """
-    有些环境下（尤其 Git Bash + Windows + uvicorn），sys.stderr 可能在启动过程中被关闭/替换。
-    这里做“安全重包”：
-    - stream 为 None / 已关闭 => 不处理
-    - 没有 buffer / 已经是 utf-8 wrapper => 不处理
-    - 否则用 TextIOWrapper 包一层，保证中文输出不炸
-    """
     try:
         if stream is None:
             return stream
@@ -51,9 +43,9 @@ sys.stdout = _safe_rewrap_stream(sys.stdout, "utf-8")
 sys.stderr = _safe_rewrap_stream(sys.stderr, "utf-8")
 
 # =========================================================
-# 你项目里已有：run_reco（保留 /api/chat 1.0 推荐逻辑）
+# 你项目里已有：run_reco（保留推荐逻辑 recommend_text）
 # =========================================================
-from tv_buy_1_0.run_reco import recommend_text, list_candidates, format_candidates
+from tv_buy_1_0.run_reco import recommend_text
 
 # tools 路由（保留）
 from tv_buy_1_0.tools.tool_api import router as tools_router
@@ -71,44 +63,23 @@ from tv_buy_1_0.g2_lab.report.postprocess import split_output
 TVBUY_ROOT = Path(__file__).resolve().parents[1]  # => tv_buy_1_0/
 
 # =========================================================
-# ✅ 默认环境变量（只在“未设置时”写入，避免每次启动都手动 export）
-# - 不要在代码里写 OPENAI_API_KEY（安全）
+# ✅ 默认环境变量（只在“未设置时”写入）
 # =========================================================
 def _env_default(key: str, value: str) -> None:
     if (os.environ.get(key) or "").strip() == "":
         os.environ[key] = value
 
 
-# 1) YAML 目录默认值（你也可以之后用环境变量覆盖）
 _env_default("TVBUY_PRODUCTS_YAML_DIR", str(TVBUY_ROOT / "data_raw" / "excel_import_all_v1"))
-
-# 2) YAML 缓存 TTL 默认 300s（提速关键）
 _env_default("TVBUY_YAML_CACHE_TTL", "300")
-
-# 3) 默认启用“晓春哥 XCG” LLM（有 key 才会真正调用）
 _env_default("TVBUY_ENABLE_XCG_LLM", "1")
-
-# 4) OpenAI 超时（秒）—— ✅ 默认改成更“硬”的 2.5s
 _env_default("TVBUY_OPENAI_TIMEOUT", "2.5")
-
-# 5) sqlite fallback 默认关闭
 _env_default("TVBUY_USE_SQLITE_FALLBACK", "0")
-
-# 6) YAML 扫描深度限制（防止目录很深时拖慢）
 _env_default("TVBUY_YAML_MAX_DEPTH", "8")
-
-# 7) xcg_notes 最多扫描文件数（防止笔记太多时拖慢）
 _env_default("TVBUY_XCG_NOTES_MAX_FILES", "80")
-
-# 8) LLM 文本缓存 TTL（秒）—— 10 分钟
 _env_default("TVBUY_LLM_CACHE_TTL", "600")
-
-# 9) 熔断：连续失败多少次开启熔断
 _env_default("TVBUY_LLM_CIRCUIT_FAILS", "3")
-
-# 10) 熔断：开启后持续多久（秒）
 _env_default("TVBUY_LLM_CIRCUIT_OPEN_SEC", "120")
-
 
 # =========================================================
 # 数据源配置
@@ -120,8 +91,6 @@ XCG_NOTES_DIR = Path(os.environ.get("TVBUY_XCG_NOTES_DIR", str(TVBUY_ROOT / "dat
 
 # =========================================================
 # LLM 配置（可选）
-# - 兼容 Git Bash export：OPENAI_MODEL / OPENAI_BASE_URL / OPENAI_API_KEY
-# - 也兼容你自定义：TVBUY_OPENAI_MODEL
 # =========================================================
 OPENAI_MODEL = (
     os.environ.get("OPENAI_MODEL", "").strip()
@@ -167,6 +136,7 @@ except Exception:
 def _yaml_safe_load(text: str) -> Any:
     if _YAML_IMPL == "ruamel" and _yaml_ruamel is not None:
         import io as _io
+
         return _yaml_ruamel.load(_io.StringIO(text))
     if _YAML_IMPL == "pyyaml" and _yaml_pyyaml is not None:
         return _yaml_pyyaml.safe_load(text)
@@ -183,7 +153,7 @@ app.include_router(tools_router)
 templates = Jinja2Templates(directory=str(TVBUY_ROOT / "web" / "templates"))
 
 # =========================================================
-# Storage (固定到 tv_buy_1_0 目录下)
+# Storage
 # =========================================================
 UPLOAD_DIR = TVBUY_ROOT / "data_raw" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -194,8 +164,9 @@ CONTRAST_OUT_DIR.mkdir(parents=True, exist_ok=True)
 CONTRAST_ANALYSIS_DIR = TVBUY_ROOT / "summaries" / "contrast_analysis"
 CONTRAST_ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
 
+
 # =========================================================
-# Body Helpers (兼容 Git Bash curl 中文 JSON)
+# JSON helpers
 # =========================================================
 async def _read_json_body(request: Request) -> Dict[str, Any]:
     raw = await request.body()
@@ -207,14 +178,6 @@ async def _read_json_body(request: Request) -> Dict[str, Any]:
         except Exception as e:
             last_err = e
     raise ValueError(f"Bad JSON body (decode failed): {last_err}")
-
-
-def _json_ok(reply: str, raw: Optional[Dict[str, Any]] = None) -> JSONResponse:
-    return JSONResponse(content={"ok": True, "reply": reply, "raw": raw or {}})
-
-
-def _json_err(msg: str, status_code: int = 400, raw: Optional[Dict[str, Any]] = None) -> JSONResponse:
-    return JSONResponse(status_code=status_code, content={"ok": False, "error": msg, "raw": raw or {}})
 
 
 # =========================================================
@@ -362,7 +325,7 @@ def api_g2_contrast_report(req: ContrastReportReq):
 
 
 # =========================================================
-# 简化版：只收集 品牌 / 尺寸 / 预算
+# 解析：品牌 / 尺寸 / 预算 / 场景
 # =========================================================
 BRAND_ALIASES = {
     "TCL": ["tcl", "t.c.l", "只看tcl", "只要tcl", "我要tcl", "仅tcl", "我只看tcl"],
@@ -375,6 +338,62 @@ BRAND_ALIASES = {
     "三星": ["三星", "samsung"],
     "LG": ["lg"],
 }
+
+# ✅ 只为“清空 brand”服务：不限品牌/不限制品牌/随便 等
+_BRAND_CLEAR_KWS = [
+    "不限品牌",
+    "不限制品牌",
+    "不限定品牌",
+    "品牌不限",
+    "品牌不限制",
+    "品牌不限定",
+    "随便品牌",
+    "都行",
+    "随便",
+    "任意品牌",
+    "不挑品牌",
+    "不挑牌子",
+    "不限制牌子",
+    "不限牌子",
+]
+
+# =========================================================
+# ✅ 场景归一化：自然语言 → ps5/movie/bright
+# =========================================================
+_SCENE_ALIASES: Dict[str, List[str]] = {
+    "ps5": [
+        # 原始
+        "ps5", "ps", "playstation", "ps 5",
+        # 游戏表述
+        "打游戏", "玩游戏", "玩儿游戏", "游戏", "主机", "游戏机", "次世代", "电竞",
+        # 典型诉求
+        "120hz", "144hz", "高刷", "低延迟", "输入延迟", "allm", "hdmi2.1", "hdmi 2.1",
+        # 类型词（尽量别太激进）
+        "fps", "射击", "动作", "格斗", "竞速",
+        # 其他主机（用户说“玩 switch / xbox”也等价走游戏取向）
+        "switch", "ns", "xbox",
+    ],
+    "movie": [
+        "movie",
+        "看电影", "电影", "观影", "影院", "影院感", "电影感",
+        "追剧", "看剧", "电视剧", "综艺",
+        "netflix", "网飞", "disney", "disney+", "apple tv", "hbomax",
+        "杜比视界", "dolby vision", "杜比", "hdr 电影", "hdr影片",
+    ],
+    "bright": [
+        "bright",
+        "强光", "很亮", "太亮", "明亮", "白天", "白天看",
+        "客厅白天", "客厅很亮", "客厅强光", "阳光", "阳光直射", "采光好", "大窗", "落地窗",
+        "开灯", "灯光", "反光", "眩光",
+    ],
+}
+
+
+def _should_clear_brand(raw: str) -> bool:
+    t = (raw or "").strip().lower()
+    if not t:
+        return False
+    return any(k in t for k in _BRAND_CLEAR_KWS)
 
 
 def _parse_brand(raw: str) -> Optional[str]:
@@ -450,37 +469,163 @@ def _parse_budget_from_free_numbers(raw: str, size: Optional[int]) -> Optional[i
     return max(cands)
 
 
-def parse_slots_simple(text: str) -> Dict[str, Any]:
-    raw = (text or "").strip()
-    tl = raw.lower()
-    if any(k in tl for k in ["重置", "清空", "重新开始", "reset"]):
-        return {"_reset": True}
+def _parse_scene(raw: str) -> Optional[str]:
+    """
+    归一化用户用途输入：
+    - 游戏/主机/高刷/低延迟 等 => ps5
+    - 电影/观影/追剧 等 => movie
+    - 强光/白天客厅/反光 等 => bright
 
-    brand = _parse_brand(raw)
-    size = _parse_size(raw)
-    budget = _parse_budget(raw)
+    同一句里如果同时命中多个场景：按命中次数优先；平手则 ps5 > movie > bright
+    """
+    t = (raw or "").strip()
+    if not t:
+        return None
 
-    if budget is None:
-        budget = _parse_budget_from_free_numbers(raw, size=size)
+    tl = t.lower()
 
-    return {"brand": brand, "size": size, "budget": budget}
+    # 快速：用户直接输入标准标签
+    if tl in ("ps5", "movie", "bright"):
+        return tl
+
+    # 计分：避免 “ps” 这种太短的 token 误匹配（用词边界）
+    scores: Dict[str, int] = {"ps5": 0, "movie": 0, "bright": 0}
+
+    def hit_kw(kw: str) -> bool:
+        k = (kw or "").strip()
+        if not k:
+            return False
+        kl = k.lower()
+
+        # 英文/数字短词：用边界降低误判
+        if re.fullmatch(r"[a-z0-9\+\.\-\s]{1,8}", kl):
+            pat = r"(?<![a-z0-9])" + re.escape(kl.replace(" ", "")) + r"(?![a-z0-9])"
+            tl2 = re.sub(r"\s+", "", tl)
+            return re.search(pat, tl2) is not None
+
+        # 中文/长词：直接包含
+        return kl in tl
+
+    for scene, kws in _SCENE_ALIASES.items():
+        for kw in kws:
+            if hit_kw(kw):
+                scores[scene] += 1
+
+    if max(scores.values()) <= 0:
+        return None
+
+    # 平手优先级：ps5 > movie > bright
+    best = sorted(
+        scores.items(),
+        key=lambda x: (-x[1], 0 if x[0] == "ps5" else (1 if x[0] == "movie" else 2)),
+    )[0][0]
+    return best
 
 
-def _next_missing_simple(state: Dict[str, Any]) -> Optional[str]:
-    if state.get("brand") is None:
-        return "brand"
-    if state.get("size") is None:
-        return "size"
-    if state.get("budget") is None:
-        return "budget"
-    return None
-
-
-QUESTION_SIMPLE = {
-    "brand": "你想看哪个品牌？比如：TCL / 海信 / 小米 / 雷鸟 / Vidda / 创维（直接回“雷鸟”也行）",
-    "size": "你想要多大尺寸？比如：65 / 75 / 85 / 98（直接回“98寸”也行）",
-    "budget": "预算上限多少？比如：12000（或 1.2万 / 12k）",
+# =========================================================
+# ✅ 价格区间（后端写死：只用于解析/提示；按钮由 index.html 渲染）
+# =========================================================
+PRICE_BUCKETS: Dict[int, List[Dict[str, Any]]] = {
+    43: [
+        {"range": "0-1200", "percent": 22},
+        {"range": "1200-1800", "percent": 34},
+        {"range": "1800-2500", "percent": 24},
+        {"range": "2500-3500", "percent": 14},
+        {"range": "3500+", "percent": 6},
+    ],
+    50: [
+        {"range": "0-2200", "percent": 20},
+        {"range": "2200-3000", "percent": 32},
+        {"range": "3000-4000", "percent": 26},
+        {"range": "4000-5500", "percent": 15},
+        {"range": "5500+", "percent": 7},
+    ],
+    55: [
+        {"range": "0-2800", "percent": 28},
+        {"range": "2800-3800", "percent": 30},
+        {"range": "3800-5000", "percent": 24},
+        {"range": "5000-7000", "percent": 12},
+        {"range": "7000+", "percent": 6},
+    ],
+    65: [
+        {"range": "0-3500", "percent": 18},
+        {"range": "3500-5000", "percent": 30},
+        {"range": "5000-7000", "percent": 26},
+        {"range": "7000-10000", "percent": 16},
+        {"range": "10000+", "percent": 10},
+    ],
+    75: [
+        {"range": "0-6000", "percent": 20},
+        {"range": "6000-8500", "percent": 30},
+        {"range": "8500-12000", "percent": 24},
+        {"range": "12000-18000", "percent": 16},
+        {"range": "18000+", "percent": 10},
+    ],
+    85: [
+        {"range": "0-7000", "percent": 6},
+        {"range": "7000-10000", "percent": 35},
+        {"range": "10000-14000", "percent": 30},
+        {"range": "14000-20000", "percent": 21},
+        {"range": "20000+", "percent": 8},
+    ],
+    98: [
+        {"range": "0-7000", "percent": 6},
+        {"range": "7000-18000", "percent": 38},
+        {"range": "18000-26000", "percent": 30},
+        {"range": "26000-40000", "percent": 18},
+        {"range": "40000+", "percent": 8},
+    ],
+    100: [
+        {"range": "0-8000", "percent": 16},
+        {"range": "8000-13000", "percent": 28},
+        {"range": "13000-18000", "percent": 26},
+        {"range": "18000-20000", "percent": 18},
+        {"range": "20000+", "percent": 12},
+    ],
+    115: [
+        {"range": "50000-62000", "percent": 22},
+        {"range": "62000-72000", "percent": 30},
+        {"range": "72000-82000", "percent": 24},
+        {"range": "82000-95000", "percent": 16},
+        {"range": "95000+", "percent": 8},
+    ],
+    116: [
+        {"range": "50000-62000", "percent": 22},
+        {"range": "62000-72000", "percent": 30},
+        {"range": "72000-82000", "percent": 24},
+        {"range": "82000-95000", "percent": 16},
+        {"range": "95000+", "percent": 8},
+    ],
 }
+
+
+def _parse_price_bucket_range(v: str) -> Tuple[Optional[int], Optional[int], Optional[str]]:
+    """
+    输入： "7000-10000" / "3500+" / "skip"
+    输出： (min_price, max_price, bucket_str)
+      - a-b => (a, b, "a-b")
+      - x+  => (x, None, "x+")
+      - skip => (None, None, "skip")
+      - 不匹配 => (None, None, None)
+    """
+    s = (v or "").strip()
+    if not s:
+        return None, None, None
+    if s == "skip":
+        return None, None, "skip"
+    m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", s)
+    if m:
+        lo = int(m.group(1))
+        hi = int(m.group(2))
+        if lo > hi:
+            lo, hi = hi, lo
+        return lo, hi, s
+    m2 = re.match(r"^\s*(\d+)\s*\+\s*$", s)
+    if m2:
+        lo = int(m2.group(1))
+        return lo, None, s
+    return None, None, None
+
 
 # =========================================================
 # YAML 产品加载（缓存 + 快速目录签名 + 文件列表缓存）
@@ -735,7 +880,7 @@ def _load_yaml_products() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
 
 
 # =========================================================
-# sqlite fallback（默认关闭）
+# sqlite fallback（可选）
 # =========================================================
 def _sqlite_find_table_and_cols(conn: sqlite3.Connection) -> Tuple[Optional[str], Dict[str, str]]:
     cur = conn.cursor()
@@ -781,18 +926,23 @@ def _sqlite_find_table_and_cols(conn: sqlite3.Connection) -> Tuple[Optional[str]
     return None, {}
 
 
-def _sqlite_query_products(brand: Optional[str], size: Optional[int], budget: Optional[int]) -> Tuple[List[Dict[str, Any]], int]:
+def _sqlite_query_products_exact(
+    brand: Optional[str],
+    size: Optional[int],
+    budget_min: Optional[int],
+    budget_max: Optional[int],
+) -> List[Dict[str, Any]]:
     if not USE_SQLITE_FALLBACK:
-        return [], 0
+        return []
     if not SQLITE_DB.exists():
-        return [], 0
+        return []
 
     conn = sqlite3.connect(str(SQLITE_DB))
     conn.row_factory = sqlite3.Row
     try:
         tname, cmap = _sqlite_find_table_and_cols(conn)
         if not tname:
-            return [], 0
+            return []
 
         where = []
         args: List[Any] = []
@@ -803,9 +953,13 @@ def _sqlite_query_products(brand: Optional[str], size: Optional[int], budget: Op
         if size:
             where.append(f"{cmap['size']} = ?")
             args.append(int(size))
-        if budget is not None:
+
+        if budget_min is not None:
+            where.append(f"{cmap['price']} >= ?")
+            args.append(int(budget_min))
+        if budget_max is not None:
             where.append(f"{cmap['price']} <= ?")
-            args.append(int(budget))
+            args.append(int(budget_max))
 
         where_sql = (" WHERE " + " AND ".join(where)) if where else ""
         order_sql = f" ORDER BY {cmap['price']} DESC"
@@ -844,14 +998,13 @@ def _sqlite_query_products(brand: Optional[str], size: Optional[int], budget: Op
                     "_from": "sqlite",
                 }
             )
-
-        return out, len(out)
+        return out
     finally:
         conn.close()
 
 
 # =========================================================
-# 合并、去重、排序
+# 合并、去重、排序（YAML 优先）
 # =========================================================
 def _norm_key(brand: Optional[str], model: Optional[str], size: Optional[int]) -> str:
     b = (brand or "").strip().lower()
@@ -874,7 +1027,13 @@ def _merge_products(yaml_items: List[Dict[str, Any]], sqlite_items: List[Dict[st
     return list(mp.values())
 
 
-def _filter_products(items: List[Dict[str, Any]], brand: Optional[str], size: Optional[int], budget: Optional[int]) -> List[Dict[str, Any]]:
+def _filter_products_exact(
+    items: List[Dict[str, Any]],
+    brand: Optional[str],
+    size: Optional[int],
+    budget_min: Optional[int],
+    budget_max: Optional[int],
+) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for it in items:
         b = it.get("brand")
@@ -883,10 +1042,19 @@ def _filter_products(items: List[Dict[str, Any]], brand: Optional[str], size: Op
 
         if brand and (b != brand):
             continue
-        if size and (s != size):
-            continue
-        if budget is not None and isinstance(p, (int, float)) and int(p) > int(budget):
-            continue
+        if size is not None:
+            if not isinstance(s, (int, float)):
+                continue
+            if int(s) != int(size):
+                continue
+
+        if isinstance(p, (int, float)):
+            ip = int(p)
+            if budget_min is not None and ip < int(budget_min):
+                continue
+            if budget_max is not None and ip > int(budget_max):
+                continue
+
         out.append(it)
     return out
 
@@ -901,305 +1069,67 @@ def _sort_by_price_desc(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sorted(items, key=key)
 
 
-# =========================================================
-# 晓春哥笔记：加载 & 按型号命中（可选）
-# =========================================================
-def _load_xcg_notes_for_models(models: List[str], max_chars: int = 2200) -> str:
-    if not XCG_NOTES_DIR.exists() or not XCG_NOTES_DIR.is_dir():
-        return ""
-
-    keys = []
-    for m in models:
-        if not m:
-            continue
-        s = str(m).lower()
-        s = re.sub(r"[^a-z0-9]+", "", s)
-        if s:
-            keys.append(s)
-
-    picked: List[str] = []
-    files = sorted(XCG_NOTES_DIR.glob("*.md"), key=lambda p: str(p))[:_XCG_NOTES_MAX_FILES]
-
-    for p in files:
-        name_key = re.sub(r"[^a-z0-9]+", "", p.name.lower())
-        hit = any(k in name_key for k in keys) if keys else False
-        if hit:
-            try:
-                txt = p.read_text(encoding="utf-8")
-            except Exception:
-                try:
-                    txt = p.read_text(encoding="utf-8-sig")
-                except Exception:
-                    continue
-            picked.append(f"【笔记：{p.name}】\n{txt.strip()}\n")
-            if sum(len(x) for x in picked) > max_chars:
-                break
-
-    if not picked and keys:
-        for p in files:
-            try:
-                try:
-                    txt_head = p.read_text(encoding="utf-8")[:6000]
-                except Exception:
-                    txt_head = p.read_text(encoding="utf-8-sig")[:6000]
-            except Exception:
-                continue
-            txt_key = re.sub(r"[^a-z0-9]+", "", txt_head.lower())
-            hit = any(k in txt_key for k in keys)
-            if hit:
-                try:
-                    txt_full = p.read_text(encoding="utf-8")
-                except Exception:
-                    try:
-                        txt_full = p.read_text(encoding="utf-8-sig")
-                    except Exception:
-                        continue
-                picked.append(f"【笔记：{p.name}】\n{txt_full.strip()}\n")
-                if sum(len(x) for x in picked) > max_chars:
-                    break
-
-    out = "\n\n".join(picked).strip()
-    if len(out) > max_chars:
-        out = out[:max_chars].rstrip() + "\n…(截断)"
-    return out
+def list_candidates_exact(
+    size: int,
+    brand: Optional[str],
+    budget_min: Optional[int],
+    budget_max: Optional[int],
+    limit: int = 10,
+) -> Tuple[int, List[Dict[str, Any]]]:
+    yaml_items, _meta = _load_yaml_products()
+    sqlite_items = _sqlite_query_products_exact(brand=brand, size=size, budget_min=budget_min, budget_max=budget_max)
+    merged = _merge_products(yaml_items=yaml_items, sqlite_items=sqlite_items)
+    filt = _filter_products_exact(merged, brand=brand, size=size, budget_min=budget_min, budget_max=budget_max)
+    sorted_items = _sort_by_price_desc(filt)
+    return len(sorted_items), sorted_items[:limit]
 
 
-# =========================================================
-# ✅✅✅ LLM：硬超时 + 缓存 + 熔断（替换你原来的 _call_openai_for_xcg）
-# =========================================================
-_LLM_CACHE_TTL = float((os.environ.get("TVBUY_LLM_CACHE_TTL") or "600").strip() or "600")
-_LLM_CIRCUIT_FAILS = int((os.environ.get("TVBUY_LLM_CIRCUIT_FAILS") or "3").strip() or "3")
-_LLM_CIRCUIT_OPEN_SEC = int((os.environ.get("TVBUY_LLM_CIRCUIT_OPEN_SEC") or "120").strip() or "120")
+def format_candidates_exact(
+    size: int,
+    total: int,
+    cands: List[Dict[str, Any]],
+    brand: Optional[str],
+    budget_min: Optional[int],
+    budget_max: Optional[int],
+    budget_bucket: Optional[str],
+) -> str:
+    cond = []
+    if brand:
+        cond.append(f"品牌={brand}")
 
-_llm_cache: Dict[str, Dict[str, Any]] = {}  # key -> {"ts": float, "text": str}
-_llm_fail_count: int = 0
-_llm_circuit_open_until: float = 0.0
+    if budget_bucket == "skip":
+        cond.append("不限预算")
+    elif budget_min is not None and budget_max is not None:
+        cond.append(f"预算区间={budget_min}-{budget_max}")
+    elif budget_min is not None and budget_max is None:
+        cond.append(f"预算≥{budget_min}")
+    elif budget_max is not None:
+        cond.append(f"预算≤{budget_max}")
 
-# 线程池：让“硬超时”生效（future.result(timeout=...)）
-_llm_executor = ThreadPoolExecutor(max_workers=4)
+    cond.append(f"尺寸={size}寸")
+    head = f"📌 当前筛选候选：{total} 台（" + "，".join(cond) + "）"
 
+    if total == 0:
+        return head + "\n⚠️ 当前条件下没有候选。你可以：放宽品牌/提高预算/换尺寸。"
 
-def _llm_cache_key(prompt_text: str) -> str:
-    # 简单稳定：去空白 + 截断；不会泄露 key
-    s = re.sub(r"\s+", " ", (prompt_text or "")).strip()
-    if len(s) > 2000:
-        s = s[:2000]
-    return s
-
-
-def _llm_cache_get(key: str) -> Optional[str]:
-    now = time.time()
-    it = _llm_cache.get(key)
-    if not it:
-        return None
-    ts = float(it.get("ts") or 0.0)
-    if now - ts > _LLM_CACHE_TTL:
-        _llm_cache.pop(key, None)
-        return None
-    text = it.get("text")
-    if isinstance(text, str) and text.strip():
-        return text.strip()
-    return None
-
-
-def _llm_cache_set(key: str, text: str) -> None:
-    if not (isinstance(text, str) and text.strip()):
-        return
-    _llm_cache[key] = {"ts": time.time(), "text": text.strip()}
-    # 简单控量：最多 300 条
-    if len(_llm_cache) > 300:
-        # 删最旧的 60 条
-        olds = sorted(_llm_cache.items(), key=lambda kv: float(kv[1].get("ts") or 0.0))[:60]
-        for k, _ in olds:
-            _llm_cache.pop(k, None)
-
-
-def _circuit_is_open() -> bool:
-    return time.time() < float(_llm_circuit_open_until or 0.0)
-
-
-def _circuit_record_success() -> None:
-    global _llm_fail_count
-    _llm_fail_count = 0
-
-
-def _circuit_record_failure() -> None:
-    global _llm_fail_count, _llm_circuit_open_until
-    _llm_fail_count += 1
-    if _llm_fail_count >= _LLM_CIRCUIT_FAILS:
-        _llm_circuit_open_until = time.time() + float(_LLM_CIRCUIT_OPEN_SEC)
-
-
-def _openai_call_blocking(prompt_text: str) -> Optional[str]:
-    """
-    真实 OpenAI 调用（阻塞）。注意：这里不要依赖 SDK 的 timeout 参数来“保证”超时，
-    我们外层用 future.result(timeout=...) 做硬超时。
-    """
-    if not (OPENAI_API_KEY and ENABLE_XCG_LLM):
-        return None
-    try:
-        from openai import OpenAI  # type: ignore
-    except Exception:
-        return None
-
-    try:
-        client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
-        resp = client.responses.create(
-            model=OPENAI_MODEL,
-            instructions="你是中文电视导购专家，输出要简洁、可执行、不要编造。若缺关键数据，请明确提示“需确认/等实测”。",
-            input=prompt_text,
-            temperature=0.3,
-        )
-        text = getattr(resp, "output_text", None)
-        if isinstance(text, str) and text.strip():
-            return text.strip()
-        return None
-    except Exception:
-        return None
-
-
-def _call_openai_for_xcg_hard_timeout(prompt_text: str, timeout_sec: float) -> Tuple[Optional[str], Dict[str, Any]]:
-    """
-    返回：(text_or_none, llm_meta)
-    llm_meta: {used, cache_hit, circuit_open, timeout, elapsed_ms}
-    """
-    t0 = time.time()
-    meta = {"used": False, "cache_hit": False, "circuit_open": False, "timeout": False, "elapsed_ms": 0}
-
-    if not (OPENAI_API_KEY and ENABLE_XCG_LLM):
-        meta["elapsed_ms"] = int((time.time() - t0) * 1000)
-        return None, meta
-
-    if _circuit_is_open():
-        meta["circuit_open"] = True
-        meta["elapsed_ms"] = int((time.time() - t0) * 1000)
-        return None, meta
-
-    ck = _llm_cache_key(prompt_text)
-    cached = _llm_cache_get(ck)
-    if cached:
-        meta["used"] = True
-        meta["cache_hit"] = True
-        meta["elapsed_ms"] = int((time.time() - t0) * 1000)
-        return cached, meta
-
-    meta["used"] = True
-    fut = _llm_executor.submit(_openai_call_blocking, prompt_text)
-    try:
-        text = fut.result(timeout=max(0.5, float(timeout_sec)))
-        if text:
-            _llm_cache_set(ck, text)
-            _circuit_record_success()
-            meta["elapsed_ms"] = int((time.time() - t0) * 1000)
-            return text, meta
-        _circuit_record_failure()
-        meta["elapsed_ms"] = int((time.time() - t0) * 1000)
-        return None, meta
-    except FuturesTimeoutError:
-        meta["timeout"] = True
-        _circuit_record_failure()
-        meta["elapsed_ms"] = int((time.time() - t0) * 1000)
-        return None, meta
-    except Exception:
-        _circuit_record_failure()
-        meta["elapsed_ms"] = int((time.time() - t0) * 1000)
-        return None, meta
-
-
-# =========================================================
-# LLM：用 prompt.py 生成“晓春哥 XCG 推荐”
-# =========================================================
-def _load_prompt_module() -> Optional[Any]:
-    try:
-        return importlib.import_module("tv_buy_1_0.llm.prompt")
-    except Exception:
-        return None
-
-
-def _build_user_prompt(filters: Dict[str, Any], top_items: List[Dict[str, Any]]) -> str:
-    pm = _load_prompt_module()
-    if pm is not None:
-        fn = getattr(pm, "render", None)
-        if callable(fn):
-            try:
-                return str(fn(filters, top_items))
-            except Exception:
-                pass
-
-        for name in ("PROMPT_TEMPLATE", "USER_PROMPT", "PROMPT", "TEMPLATE"):
-            tpl = getattr(pm, name, None)
-            if isinstance(tpl, str) and tpl.strip():
-                try:
-                    return tpl.format(filters=filters, items=top_items)
-                except Exception:
-                    return tpl
-
-    models = [str(x.get("model") or "") for x in top_items[:10]]
-    notes = _load_xcg_notes_for_models(models)
-
-    lines = [
-        "你是电视导购专家（口吻：晓春哥 XCG）。",
-        "只基于用户的【品牌/尺寸/预算】和候选机型清单，按价格段给出购买建议。",
-        "要求：输出 3 条：旗舰堆料/均衡选择/性价比；每条必须引用清单里的具体型号与价格；不要编造参数。",
-        "",
-        f"用户筛选条件：{json.dumps(filters, ensure_ascii=False)}",
-        "候选清单（按价格从高到低）：",
-    ]
-    for it in top_items[:10]:
+    lines = [head, "（展示前10）"]
+    for i, tv in enumerate(cands, 1):
         lines.append(
-            f"- {it.get('brand')} {it.get('model')} {it.get('size_inch')}寸 ￥{it.get('price_cny')} 定位={it.get('positioning')}"
+            f"{i}. {tv.get('brand')} {tv.get('model')} {tv.get('size_inch')}寸 | 首发 {tv.get('launch_date')} | ￥{tv.get('price_cny')}"
         )
-
-    if notes:
-        lines += ["", "———", "附：晓春哥笔记素材（仅供参考，若与清单冲突以清单为准）：", notes]
-
     return "\n".join(lines)
 
 
-def _xcg_reco_text(filters: Dict[str, Any], sorted_items: List[Dict[str, Any]]) -> Tuple[str, Dict[str, Any]]:
-    """
-    返回：(xcg_text, llm_meta)
-    llm_meta 会被塞进 /api/dialog/3p2 的 meta 里，方便你看：是否 cache/是否 timeout/是否熔断。
-    """
-    user_prompt = _build_user_prompt(filters, sorted_items[:10])
-
-    llm_text, llm_meta = _call_openai_for_xcg_hard_timeout(user_prompt, timeout_sec=OPENAI_TIMEOUT_SEC)
-    if llm_text:
-        return llm_text, llm_meta
-
-    if not sorted_items:
-        return "晓春哥 XCG 推荐：当前条件下没有匹配候选，建议放宽预算/尺寸/品牌。", llm_meta
-
-    priced = [x for x in sorted_items if isinstance(x.get("price_cny"), (int, float))]
-    if not priced:
-        return "晓春哥 XCG 推荐：候选价格缺失较多，建议先补齐价格字段再做“按预算”推荐。", llm_meta
-
-    best_hi = priced[0]
-    best_lo = priced[-1]
-    mid = priced[len(priced) // 2]
-
-    def fmt_it(it: Dict[str, Any]) -> str:
-        p = it.get("price_cny")
-        ptxt = f"￥{int(p)}" if isinstance(p, (int, float)) else "￥?"
-        return f"{it.get('brand')} {it.get('model')} {it.get('size_inch')}寸（{ptxt}｜{it.get('positioning','未知')}）"
-
-    fallback = (
-        "晓春哥 XCG 推荐（只按品牌/尺寸/预算，按价格段给买法）：\n"
-        f"- 旗舰堆料：优先看 {fmt_it(best_hi)}（预算充足就直接冲更高定位）\n"
-        f"- 均衡选择：{fmt_it(mid)}（大多数人买这个最稳）\n"
-        f"- 性价比：{fmt_it(best_lo)}（同尺寸里更省钱，适合“能大就行”）"
-    )
-    return fallback, llm_meta
-
-
 # =========================================================
-# /api/chat（保留原来 1.0，但增强：支持 session_id & 可输出 XCG 推荐段落）
+# /api/chat：问答顺序
 # =========================================================
 def next_question(state: Dict[str, Any]) -> Optional[str]:
     if state.get("size") is None:
-        return "你想要多大尺寸？比如：65 / 75 / 85（直接回“75寸”也行）"
+        return "请先选择【尺寸】（点页面按钮）。只要告诉我尺寸，我再继续问价格区间/用途/品牌。"
+    if state.get("budget_bucket") is None:
+        return "请选择【价格区间】（点页面按钮）。也可以点「不限预算」。"
     if state.get("scene") is None:
-        return "主要用途是什么？回一个就行：ps5 / movie / bright（白天客厅很亮）"
+        return "主要用途是什么？你可以直接说：打游戏/玩PS5/看电影/追剧/白天客厅强光（也支持输入 ps5 / movie / bright）"
     return None
 
 
@@ -1212,295 +1142,231 @@ class ChatReq(BaseModel):
 class ChatResp(BaseModel):
     state: Dict[str, Any]
     reply: str
+    ui: Optional[Dict[str, Any]] = None
 
 
 # =========================================================
-# ✅ Dialog 3p2 / webhook：简化版（品牌/尺寸/预算 → 按价格降序）
-# =========================================================
-_SESS: Dict[str, Dict[str, Any]] = {}
-_SESS_TTL_SEC = 60 * 60 * 24  # 24h
-
-
-def _now_ts() -> int:
-    return int(time.time())
-
-
-def _gc_sessions() -> None:
-    if len(_SESS) < 2000:
-        return
-    ts = _now_ts()
-    dead = []
-    for sid, pack in _SESS.items():
-        if ts - int(pack.get("_ts", ts)) > _SESS_TTL_SEC:
-            dead.append(sid)
-    for sid in dead:
-        _SESS.pop(sid, None)
-
-
-def _get_session(session_id: Optional[str]) -> Tuple[str, Dict[str, Any]]:
-    _gc_sessions()
-    sid = session_id or uuid4().hex
-    pack = _SESS.get(sid)
-    if not pack:
-        pack = {
-            "state_chat": {"size": None, "scene": None, "budget": None, "brand": None},
-            "state_3p2": {"brand": None, "size": None, "budget": None},
-            "_ts": _now_ts(),
-            "last_reply_full": None,
-            "last_reply_short": None,
-            "last_structured": None,
-            "last_state": None,
-        }
-        _SESS[sid] = pack
-    pack["_ts"] = _now_ts()
-    return sid, pack
-
-
-def _normalize_state_simple(state: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    if not isinstance(state, dict):
-        return {"brand": None, "size": None, "budget": None}
-    return {"brand": state.get("brand"), "size": state.get("size"), "budget": state.get("budget")}
-
-
-def _merge_state_simple(base: Dict[str, Any], slots: Dict[str, Any]) -> Dict[str, Any]:
-    out = dict(base)
-    for k in ("brand", "size", "budget"):
-        if slots.get(k) is not None:
-            out[k] = slots.get(k)
-    return out
-
-
-def _is_expand_cmd(text: str) -> bool:
-    t = re.sub(r"\s+", "", (text or "")).strip().lower()
-    t = re.sub(r"[!！。.,，?？]+$", "", t)
-    return t in ["更多", "展开", "详细", "详情", "全文", "more", "detail", "查看完整列表", "完整列表"]
-
-
-def _build_price_list_reply(state: Dict[str, Any], topn: int = 10) -> Tuple[str, str, Dict[str, Any]]:
-    t0 = time.time()
-
-    brand = state.get("brand")
-    size = _safe_int(state.get("size"))
-    budget = _safe_int(state.get("budget"))
-
-    t1 = time.time()
-    yaml_items, yaml_meta = _load_yaml_products()
-    yaml_filtered = _filter_products(yaml_items, brand=brand, size=size, budget=budget)
-    t2 = time.time()
-
-    sqlite_items, sqlite_cnt = _sqlite_query_products(brand=brand, size=size, budget=budget)
-    t3 = time.time()
-
-    merged = _merge_products(yaml_filtered, sqlite_items)
-    merged_sorted = _sort_by_price_desc(merged)
-    t4 = time.time()
-
-    filters = {"brand": brand, "size": size, "budget": budget}
-    xcg_text, llm_meta = _xcg_reco_text(filters, merged_sorted)
-    t5 = time.time()
-
-    meta = {
-        "yaml_dir": str(YAML_PRODUCTS_DIR),
-        "yaml_loaded": int(yaml_meta.get("yaml_loaded") or 0),
-        "yaml_matched": len(yaml_filtered),
-        "sqlite_enabled": bool(USE_SQLITE_FALLBACK),
-        "sqlite_matched": int(sqlite_cnt),
-        "merged_total": len(merged_sorted),
-        "openai_enabled": bool(bool(OPENAI_API_KEY) and ENABLE_XCG_LLM),
-        "openai_model": OPENAI_MODEL,
-        "openai_base_url": OPENAI_BASE_URL or "",
-        "openai_timeout_sec": OPENAI_TIMEOUT_SEC,
-        "yaml_cache_ttl": _YAML_CACHE_TTL,
-        "yaml_lib": yaml_meta.get("yaml_lib") or _YAML_IMPL,
-        "yaml_sig": _yaml_cache.get("sig"),
-        "llm_meta": {
-            **llm_meta,
-            "cache_items": len(_llm_cache),
-            "fail_count": int(_llm_fail_count),
-            "circuit_open_until": float(_llm_circuit_open_until or 0.0),
-            "cache_ttl": _LLM_CACHE_TTL,
-            "circuit_fails": _LLM_CIRCUIT_FAILS,
-            "circuit_open_sec": _LLM_CIRCUIT_OPEN_SEC,
-        },
-        "timing_ms": {
-            "total": int((t5 - t0) * 1000),
-            "yaml_load+filter": int((t2 - t1) * 1000),
-            "sqlite_query": int((t3 - t2) * 1000),
-            "merge+sort": int((t4 - t3) * 1000),
-            "xcg_text": int((t5 - t4) * 1000),
-        },
-    }
-
-    title = (
-        f"📌 当前筛选候选：{len(merged_sorted)} 台（品牌={brand}；尺寸={size}寸；预算≤{budget}）\n"
-        f"（按价格从高到低；优先 YAML；sqlite fallback={'开启' if USE_SQLITE_FALLBACK else '关闭'}）\n"
-    )
-
-    def fmt_line(i: int, it: Dict[str, Any]) -> str:
-        b = it.get("brand") or ""
-        m = it.get("model") or ""
-        s = it.get("size_inch") or ""
-        p = it.get("price_cny")
-        ptxt = f"￥{int(p)}" if isinstance(p, (int, float)) else "￥?"
-        tier = it.get("positioning") or "未知"
-        return f"{i}. {b} {m} {s}寸 | {ptxt} | 定位={tier}".strip()
-
-    top_list = merged_sorted[:topn]
-    lines = [title, "", "———", "晓春哥 XCG 推荐：", xcg_text, "", "———", f"Top{min(topn, len(top_list))}："]
-    for idx, it in enumerate(top_list, 1):
-        lines.append(fmt_line(idx, it))
-
-    lines.append("（回复：更多 / 查看完整列表 / 完整列表）")
-    reply_short = "\n".join([x for x in lines if x is not None]).strip()
-
-    full = reply_short + "\n\n调试信息：\n" + json.dumps(meta, ensure_ascii=False, indent=2)
-    structured = {
-        "filters": filters,
-        "meta": meta,
-        "top10": [
-            {
-                "brand": x.get("brand"),
-                "model": x.get("model"),
-                "size_inch": x.get("size_inch"),
-                "price_cny": x.get("price_cny"),
-                "positioning": x.get("positioning"),
-                "launch_date": x.get("launch_date"),
-                "source": x.get("source"),
-                "_from": x.get("_from"),
-            }
-            for x in top_list
-        ],
-    }
-    return reply_short, full, structured
-
-
-# =========================================================
-# /api/chat（保留你的原逻辑）
+# ✅ /api/chat（按钮由 index.html 渲染；这里永远 ui=None）
 # =========================================================
 @app.post("/api/chat", response_model=ChatResp)
 def chat(req: ChatReq):
-    if req.session_id:
-        _, pack = _get_session(req.session_id)
-        base = dict(pack.get("state_chat") or {"size": None, "scene": None, "budget": None, "brand": None})
-    else:
-        pack = {}
-        base = {"size": None, "scene": None, "budget": None, "brand": None}
+    base = {
+        "size": None,
+        "scene": None,
+        "budget": None,         # 兼容字段：上限预算（若有）
+        "brand": None,
+        "budget_bucket": None,
+        "budget_min": None,
+        "budget_max": None,
+    }
 
     if req.state:
-        base = dict(req.state)
+        st = dict(req.state)
+        for k in base.keys():
+            if k in st:
+                base[k] = st.get(k)
 
     t = (req.text or "").strip()
     tl = t.lower()
 
+    # boot: 前端传 text="" 进来 -> 只回一句提示（按钮前端自己画）
+    if t == "":
+        q = next_question(base) or "你可以继续输入需求。"
+        return ChatResp(state=base, reply=q, ui=None)
+
+    # reset
+    if any(k in tl for k in ["重置", "清空", "重新开始", "reset"]):
+        base = {
+            "size": None,
+            "scene": None,
+            "budget": None,
+            "brand": None,
+            "budget_bucket": None,
+            "budget_min": None,
+            "budget_max": None,
+        }
+        return ChatResp(state=base, reply="✅ 已重置。请先选择【尺寸】（点页面按钮）。", ui=None)
+
+    # ✅✅✅ 关键：只要用户表达“不限品牌”，立刻清空 brand（不动其它任何字段）
+    if _should_clear_brand(t):
+        base["brand"] = None
+
+    # =====================================================
+    # 1) 优先处理“尺寸切换”
+    # =====================================================
+    new_size = _parse_size(t)
+    if new_size is not None:
+        new_size = int(new_size)
+        old_size = base.get("size")
+        if old_size != new_size:
+            base["size"] = new_size
+            base["scene"] = None
+            base["budget"] = None
+            base["brand"] = None
+            base["budget_bucket"] = None
+            base["budget_min"] = None
+            base["budget_max"] = None
+
+            total, cands = list_candidates_exact(
+                size=int(base["size"]),
+                brand=None,
+                budget_min=None,
+                budget_max=None,
+                limit=10,
+            )
+            reply = (
+                f"✅ 已切换尺寸：{old_size} → {new_size} 寸\n\n"
+                + format_candidates_exact(
+                    size=int(base["size"]),
+                    total=total,
+                    cands=cands,
+                    brand=None,
+                    budget_min=None,
+                    budget_max=None,
+                    budget_bucket=None,
+                )
+                + "\n\n请选择【价格区间】（点页面按钮）。"
+            )
+            return ChatResp(state=base, reply=reply, ui=None)
+
+    # 没尺寸：必须先选尺寸
+    if base.get("size") is None:
+        return ChatResp(
+            state=base,
+            reply="请先选择【尺寸】（点页面按钮）。只要告诉我尺寸，我再继续问价格区间/用途/品牌。",
+            ui=None,
+        )
+
+    # =====================================================
+    # 2) 价格区间
+    # =====================================================
+    if base.get("budget_bucket") is None:
+        lo, hi, bucket = _parse_price_bucket_range(t)
+        if bucket is not None:
+            base["budget_bucket"] = bucket
+            base["budget_min"] = lo
+            base["budget_max"] = hi
+            base["budget"] = hi  # 兼容：recommend_text 用上限
+
+            total, cands = list_candidates_exact(
+                size=int(base["size"]),
+                brand=base.get("brand"),
+                budget_min=base.get("budget_min"),
+                budget_max=base.get("budget_max"),
+                limit=10,
+            )
+            reply = (
+                f"✅ 已选择价格区间：{bucket}\n\n"
+                + format_candidates_exact(
+                    size=int(base["size"]),
+                    total=total,
+                    cands=cands,
+                    brand=base.get("brand"),
+                    budget_min=base.get("budget_min"),
+                    budget_max=base.get("budget_max"),
+                    budget_bucket=base.get("budget_bucket"),
+                )
+                + "\n\n主要用途是什么？你可以直接说：打游戏/玩PS5/看电影/追剧/白天客厅强光（也支持 ps5 / movie / bright）"
+            )
+            return ChatResp(state=base, reply=reply, ui=None)
+
+        return ChatResp(
+            state=base,
+            reply="请选择【价格区间】（点页面按钮）。也可以点「不限预算」。",
+            ui=None,
+        )
+
+    # =====================================================
+    # 3) 有尺寸 + 价格区间后：解析 scene / 预算 / brand（brand 可随时点）
+    # =====================================================
     slots = {
         "brand": _parse_brand(t),
-        "size": _parse_size(t),
         "budget": _parse_budget(t),
-        "scene": ("ps5" if "ps5" in tl else ("movie" if "movie" in tl else ("bright" if "bright" in tl else None))),
-        "_reset": any(k in tl for k in ["重置", "清空", "reset"]),
+        "scene": _parse_scene(t),
     }
-
     if slots.get("budget") is None:
-        slots["budget"] = _parse_budget_from_free_numbers(t, size=slots.get("size"))
+        slots["budget"] = _parse_budget_from_free_numbers(t, size=base.get("size"))
 
-    if slots.get("_reset"):
-        base = {"size": None, "scene": None, "budget": None, "brand": None}
-        if req.session_id:
-            pack["state_chat"] = base
-        return ChatResp(state=base, reply="✅ 已重置。你想买多大尺寸的电视？比如：65 / 75 / 85")
+    # 手动预算：定义为“上限≤X”；清空下限（更符合用户直觉）
+    if slots.get("budget") is not None:
+        base["budget"] = int(slots["budget"])
+        base["budget_bucket"] = "manual"
+        base["budget_min"] = None
+        base["budget_max"] = int(slots["budget"])
 
-    for k in ["size", "scene", "budget", "brand"]:
-        v = slots.get(k)
-        if v is not None:
-            base[k] = v
+    # ✅✅✅ 若本次是“不限品牌”，上面已经清空了；否则本次若识别到具体品牌才写入
+    if slots.get("brand") is not None and (not _should_clear_brand(t)):
+        base["brand"] = slots["brand"]
 
-    if req.session_id:
-        pack["state_chat"] = dict(base)
+    if slots.get("scene") is not None:
+        base["scene"] = slots["scene"]
 
     collected = []
     if base.get("brand"):
         collected.append(f"品牌={base['brand']}")
-    if base.get("budget") is not None:
-        collected.append(f"预算≤{base['budget']}")
+
+    if base.get("budget_bucket") == "skip":
+        collected.append("不限预算")
+    elif base.get("budget_min") is not None and base.get("budget_max") is not None:
+        collected.append(f"预算区间={base['budget_min']}-{base['budget_max']}")
+    elif base.get("budget_min") is not None and base.get("budget_max") is None:
+        collected.append(f"预算≥{base['budget_min']}")
+    elif base.get("budget_max") is not None:
+        collected.append(f"预算≤{base['budget_max']}")
+
     if base.get("size") is not None:
-        collected.append(f"尺寸≈{base['size']}寸")
+        collected.append(f"尺寸={base['size']}寸")
     if base.get("scene") is not None:
         collected.append(f"场景={base['scene']}")
     header = f"（当前已收集：{'; '.join(collected) if collected else '暂无'}）\n\n"
 
-    reply_parts: List[str] = []
+    total, cands = list_candidates_exact(
+        size=int(base["size"]),
+        brand=base.get("brand"),
+        budget_min=base.get("budget_min"),
+        budget_max=base.get("budget_max"),
+        limit=10,
+    )
 
-    if base.get("size") is not None:
-        total, cands = list_candidates(
+    reply_parts: List[str] = []
+    reply_parts.append(
+        format_candidates_exact(
             size=int(base["size"]),
+            total=total,
+            cands=cands,
             brand=base.get("brand"),
-            budget=base.get("budget"),
-            limit=10,
+            budget_min=base.get("budget_min"),
+            budget_max=base.get("budget_max"),
+            budget_bucket=base.get("budget_bucket"),
         )
+    )
+
+    if base.get("scene") is not None:
+        reply_parts.append("")
         reply_parts.append(
-            format_candidates(
+            recommend_text(
                 size=int(base["size"]),
-                total=total,
-                cands=cands,
+                scene=str(base["scene"]),
                 brand=base.get("brand"),
                 budget=base.get("budget"),
             )
         )
 
-        if base.get("scene") is not None:
-            reply_parts.append("")
-            reply_parts.append(
-                recommend_text(
-                    size=int(base["size"]),
-                    scene=str(base["scene"]),
-                    brand=base.get("brand"),
-                    budget=base.get("budget"),
-                )
-            )
-
-        if base.get("brand") and base.get("budget") is not None:
-            try:
-                state_simple = {"brand": base.get("brand"), "size": base.get("size"), "budget": base.get("budget")}
-                reply_short, _, _ = _build_price_list_reply(state_simple, topn=10)
-                reply_parts.append("")
-                reply_parts.append("====（价格段推荐 / 晓春哥 XCG）====")
-                reply_parts.append(reply_short)
-            except Exception as e:
-                reply_parts.append("")
-                reply_parts.append(f"⚠️ 晓春哥 XCG 推荐生成失败（已忽略，不影响主推荐）：{e}")
-
-        if total == 0:
-            reply_parts.append("\n💡 建议：提高预算 / 换尺寸 / 先不限定品牌试试。")
+    if total == 0:
+        reply_parts.append("\n💡 建议：提高预算 / 换尺寸 / 先不限定品牌试试。")
 
     q = next_question(base)
     if q:
         reply = header + "\n\n".join(reply_parts) + ("\n\n" if reply_parts else "") + q
-        return ChatResp(state=base, reply=reply)
+        return ChatResp(state=base, reply=reply, ui=None)
 
     reply = header + "\n\n".join(reply_parts)
-    return ChatResp(state=base, reply=reply)
+    return ChatResp(state=base, reply=reply, ui=None)
 
 
 # =========================================================
-# ✅ /api/dialog/3p2 + /health + /webhook + /（保持原结构）
+# /health
 # =========================================================
-class DialogReq(BaseModel):
-    text: str
-    session_id: Optional[str] = None
-    state: Optional[Dict[str, Any]] = None
-
-
-class DialogResp(BaseModel):
-    ok: bool
-    session_id: str
-    reply: str
-    state: Dict[str, Any]
-    done: bool
-    reply_short: Optional[str] = None
-    reply_full: Optional[str] = None
-    structured: Optional[Dict[str, Any]] = None
-
-
 @app.get("/health")
 def health():
     try:
@@ -1509,7 +1375,7 @@ def health():
         pass
     return {
         "ok": True,
-        "ts": _now_ts(),
+        "ts": int(time.time()),
         "yaml_dir": str(YAML_PRODUCTS_DIR),
         "yaml_sig": _yaml_cache.get("sig"),
         "yaml_loaded": int(_yaml_cache.get("loaded") or 0),
@@ -1519,194 +1385,21 @@ def health():
         "openai_enabled": bool(bool(OPENAI_API_KEY) and ENABLE_XCG_LLM),
         "openai_model": OPENAI_MODEL,
         "openai_base_url": OPENAI_BASE_URL or "",
-        "xcg_notes_dir": str(XCG_NOTES_DIR),
         "yaml_cache_ttl": _YAML_CACHE_TTL,
         "enable_xcg_llm": ENABLE_XCG_LLM,
         "openai_timeout_sec": OPENAI_TIMEOUT_SEC,
         "yaml_max_depth": _YAML_MAX_DEPTH,
-        # ✅ 新增：LLM 缓存/熔断状态（方便你一眼看清到底是不是“秒出/缓存/熔断/超时”）
-        "llm_cache_ttl": _LLM_CACHE_TTL,
-        "llm_cache_items": len(_llm_cache),
-        "llm_fail_count": int(_llm_fail_count),
-        "llm_circuit_open_until": float(_llm_circuit_open_until or 0.0),
-        "llm_circuit_is_open": _circuit_is_open(),
-        "llm_circuit_fails": _LLM_CIRCUIT_FAILS,
-        "llm_circuit_open_sec": _LLM_CIRCUIT_OPEN_SEC,
     }
 
 
-@app.post("/api/dialog/3p2", response_model=DialogResp)
-async def api_dialog_3p2(request: Request):
-    try:
-        data = await _read_json_body(request)
-        req = DialogReq(**data)
-    except Exception as e:
-        return DialogResp(
-            ok=False,
-            session_id="",
-            reply=f"❌ 解析请求失败：{e}",
-            state={"brand": None, "size": None, "budget": None},
-            done=False,
-        )
-
-    sid, pack = _get_session(req.session_id)
-
-    if req.state is not None:
-        pack["state_3p2"] = _normalize_state_simple(req.state)
-
-    state = _normalize_state_simple(pack.get("state_3p2"))
-    text = (req.text or "").strip()
-
-    if _is_expand_cmd(text):
-        last_full = pack.get("last_reply_full")
-        last_short = pack.get("last_reply_short")
-        last_struct = pack.get("last_structured")
-        last_state = _normalize_state_simple(pack.get("last_state") or pack.get("state_3p2"))
-        if last_full:
-            return DialogResp(
-                ok=True,
-                session_id=sid,
-                reply=last_full,
-                reply_short=last_short,
-                reply_full=last_full,
-                structured=last_struct,
-                state=last_state,
-                done=True,
-            )
-        return DialogResp(
-            ok=True,
-            session_id=sid,
-            reply="我还没有上一条结果可展开。你可以先发：例如“雷鸟 85 1.2万”。",
-            state=last_state,
-            done=False,
-        )
-
-    slots = parse_slots_simple(text)
-
-    if slots.get("_reset"):
-        pack["state_3p2"] = {"brand": None, "size": None, "budget": None}
-        pack["last_reply_full"] = None
-        pack["last_reply_short"] = None
-        pack["last_structured"] = None
-        pack["last_state"] = None
-        return DialogResp(ok=True, session_id=sid, reply="✅ 已重置。你想看哪个品牌？比如：雷鸟 / tcl", state=pack["state_3p2"], done=False)
-
-    state = _merge_state_simple(state, slots)
-    pack["state_3p2"] = state
-
-    missing = _next_missing_simple(state)
-    if missing:
-        return DialogResp(ok=True, session_id=sid, reply=QUESTION_SIMPLE[missing], state=state, done=False)
-
-    try:
-        reply_short, reply_full, structured = _build_price_list_reply(state, topn=10)
-    except Exception as e:
-        return DialogResp(ok=False, session_id=sid, reply=f"❌ 生成结果失败：{e}", state=state, done=False)
-
-    pack["last_reply_full"] = reply_full
-    pack["last_reply_short"] = reply_short
-    pack["last_structured"] = structured
-    pack["last_state"] = dict(state)
-
-    # 维持你原本的行为：done=true 后清空 3p2 的 state
-    pack["state_3p2"] = {"brand": None, "size": None, "budget": None}
-
-    return DialogResp(
-        ok=True,
-        session_id=sid,
-        reply=reply_short,
-        reply_short=reply_short,
-        reply_full=reply_full,
-        structured=structured,
-        state=state,
-        done=True,
-    )
-
-
-@app.post("/webhook")
-async def webhook(request: Request):
-    try:
-        data = await _read_json_body(request)
-    except Exception as e:
-        return _json_err(f"bad json: {e}", status_code=400)
-
-    user_id = str(data.get("user_id") or "")
-    session_id = str(data.get("session_id") or "") or uuid4().hex
-    text = str(data.get("text") or "").strip()
-    if not text:
-        return _json_err("missing text", status_code=400)
-
-    req = DialogReq(text=text, session_id=session_id, state=data.get("state"))
-    sid, pack = _get_session(req.session_id)
-
-    if req.state is not None:
-        pack["state_3p2"] = _normalize_state_simple(req.state)
-
-    state = _normalize_state_simple(pack.get("state_3p2"))
-
-    if _is_expand_cmd(text):
-        last_full = pack.get("last_reply_full")
-        if last_full:
-            raw = {
-                "ok": True,
-                "session_id": sid,
-                "reply": last_full,
-                "state": _normalize_state_simple(pack.get("last_state") or pack.get("state_3p2")),
-                "done": True,
-                "reply_short": pack.get("last_reply_short"),
-                "reply_full": last_full,
-                "structured": pack.get("last_structured"),
-                "user_id": user_id,
-            }
-            return _json_ok(last_full, raw=raw)
-        return _json_ok("我还没有上一条结果可展开。你可以先发：例如“雷鸟 85 1.2万”。", raw={"ok": True, "session_id": sid})
-
-    slots = parse_slots_simple(text)
-
-    if slots.get("_reset"):
-        pack["state_3p2"] = {"brand": None, "size": None, "budget": None}
-        pack["last_reply_full"] = None
-        pack["last_reply_short"] = None
-        pack["last_structured"] = None
-        pack["last_state"] = None
-        raw = {"ok": True, "session_id": sid, "done": False, "state": pack["state_3p2"]}
-        return _json_ok("✅ 已重置。你想看哪个品牌？比如：雷鸟 / tcl", raw=raw)
-
-    state = _merge_state_simple(state, slots)
-    pack["state_3p2"] = state
-
-    missing = _next_missing_simple(state)
-    if missing:
-        q = QUESTION_SIMPLE[missing]
-        raw = {"ok": True, "session_id": sid, "done": False, "state": state}
-        return _json_ok(q, raw=raw)
-
-    try:
-        reply_short, reply_full, structured = _build_price_list_reply(state, topn=10)
-    except Exception as e:
-        return _json_err(f"generate failed: {e}", status_code=500)
-
-    pack["last_reply_full"] = reply_full
-    pack["last_reply_short"] = reply_short
-    pack["last_structured"] = structured
-    pack["last_state"] = dict(state)
-
-    pack["state_3p2"] = {"brand": None, "size": None, "budget": None}
-
-    raw = {
-        "ok": True,
-        "session_id": sid,
-        "reply": reply_short,
-        "state": state,
-        "done": True,
-        "reply_short": reply_short,
-        "reply_full": reply_full,
-        "structured": structured,
-        "user_id": user_id,
-    }
-    return _json_ok(reply_short, raw=raw)
-
-
+# =========================================================
+# pages
+# =========================================================
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/output", response_class=HTMLResponse)
+def output_page(request: Request):
+    return templates.TemplateResponse("output.html", {"request": request})

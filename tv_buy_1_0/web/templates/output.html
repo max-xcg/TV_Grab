@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>对比度截图分析</title>
+  <style>
+    :root{--bg:#0b1220;--text:#e5e7eb;--muted:#94a3b8;--border:rgba(148,163,184,.18);--accent:#60a5fa;--accent2:#34d399;--shadow:0 12px 30px rgba(0,0,0,.35);--radius:14px;}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;
+      background:radial-gradient(1200px 600px at 20% 0%, rgba(96,165,250,.25), transparent 60%),
+                 radial-gradient(1000px 500px at 90% 10%, rgba(52,211,153,.18), transparent 55%), var(--bg);
+      color:var(--text);}
+    .wrap{max-width:980px;margin:28px auto;padding:0 16px;}
+    .header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px;}
+    .title{font-size:24px;font-weight:900;letter-spacing:.5px;margin:0;}
+    .subtitle{margin:6px 0 0 0;color:var(--muted);font-size:13px;line-height:1.4;}
+    .linkbtn{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:8px 12px;border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(15,23,42,.55);
+      color:var(--muted);
+      text-decoration:none;
+      font-size:12px;
+      font-weight:900;
+      white-space:nowrap;
+    }
+    .linkbtn:hover{filter:brightness(1.12);color:var(--text);}
+
+    .panel{
+      background:rgba(15,23,42,.65);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+      backdrop-filter:blur(8px);
+    }
+    .panel-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+    .panel-title h2{font-size:15px;margin:0;font-weight:900;letter-spacing:.2px;}
+    .panel-title .hint{color:var(--muted);font-size:12px;}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .field{display:flex;flex-direction:column;gap:6px;}
+    .label{color:var(--muted);font-size:12px;}
+    input[type="file"], input[type="text"]{
+      border-radius:12px;border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.35);color:var(--text);
+      padding:10px 12px;outline:none;
+    }
+    input[type="text"]:focus{
+      border-color:rgba(96,165,250,.55);box-shadow:0 0 0 4px rgba(96,165,250,.12);
+    }
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;}
+    .btn{padding:10px 14px;border-radius:12px;border:1px solid rgba(96,165,250,.45);background:rgba(96,165,250,.18);color:var(--text);cursor:pointer;font-weight:900;height:44px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
+    .btn:hover{filter:brightness(1.12);}
+    .btn:disabled{opacity:.55;cursor:not-allowed;filter:none;}
+    .status{color:var(--muted);font-size:12px;}
+    .pill{
+      display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);
+      border-radius:999px;background:rgba(15,23,42,.6);color:var(--muted);font-size:12px;
+    }
+    details{margin-top:12px;border:1px solid rgba(148,163,184,.14);border-radius:12px;overflow:hidden;background:rgba(17,28,51,.45);}
+    summary{cursor:pointer;padding:10px 12px;user-select:none;color:var(--text);font-weight:900;}
+    .prewrap{padding:12px 12px 14px 12px;margin:0;white-space:pre-wrap;word-break:break-word;color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px;line-height:1.55;}
+    .divider{height:1px;background:rgba(148,163,184,.10);}
+
+    @media (max-width:700px){
+      .grid{grid-template-columns:1fr;}
+      .header{flex-direction:column;align-items:flex-start;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div>
+        <h1 class="title">📷 对比度截图分析</h1>
+        <p class="subtitle">上传两张截图：原生(Local Dimming OFF) + 有效(Local Dimming ON) → 自动生成 YAML + 评测结论</p>
+      </div>
+      <a class="linkbtn" href="/">⬅ 返回电视选购聊天</a>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        <h2>两张图 → YAML + 评测结论</h2>
+        <div class="hint">支持 png/jpg/jpeg/webp</div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <div class="label">原生对比度图（Local Dimming OFF）</div>
+          <input id="nativeFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
+        </div>
+        <div class="field">
+          <div class="label">有效对比度图（Local Dimming ON / High / Auto）</div>
+          <input id="effectiveFile" type="file" accept=".png,.jpg,.jpeg,.webp" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field" style="flex:1;min-width:240px;">
+          <div class="label">设备ID（可选，用于文件命名）</div>
+          <input id="deviceId" type="text" placeholder="例如 hisense_85e8s（不填也可以）" />
+        </div>
+
+        <button class="btn" id="btnAnalyze">一键生成结论</button>
+        <span class="pill" id="uploadPill">状态：待上传</span>
+      </div>
+
+      <div class="status" id="uploadStatus" style="margin-top:10px;"></div>
+
+      <details id="yamlDetails">
+        <summary>查看生成的 YAML（来自 /api/g2/contrast_ocr）</summary>
+        <div class="divider"></div>
+        <pre class="prewrap" id="yamlOut"></pre>
+      </details>
+
+      <details id="analysisDetails" open>
+        <summary>查看生成的评测结论（来自 /api/report/contrast）</summary>
+        <div class="divider"></div>
+        <pre class="prewrap" id="analysisOut"></pre>
+      </details>
+    </div>
+  </div>
+
+<script>
+  const $nativeFile = document.getElementById("nativeFile");
+  const $effectiveFile = document.getElementById("effectiveFile");
+  const $deviceId = document.getElementById("deviceId");
+  const $btnAnalyze = document.getElementById("btnAnalyze");
+  const $uploadStatus = document.getElementById("uploadStatus");
+  const $uploadPill = document.getElementById("uploadPill");
+  const $yamlOut = document.getElementById("yamlOut");
+  const $analysisOut = document.getElementById("analysisOut");
+  const $yamlDetails = document.getElementById("yamlDetails");
+  const $analysisDetails = document.getElementById("analysisDetails");
+
+  function setPill(text){ $uploadPill.textContent = "状态：" + text; }
+  function setStatus(text){ $uploadStatus.textContent = text || ""; }
+
+  async function uploadOne(file){
+    const fd = new FormData();
+    fd.append("file", file);
+    const resp = await fetch("/api/upload", { method: "POST", body: fd });
+    if(!resp.ok){
+      const t = await resp.text();
+      throw new Error("上传失败: " + t);
+    }
+    return await resp.json(); // { image_id, path }
+  }
+
+  $btnAnalyze.addEventListener("click", async () => {
+    const nativeFile = $nativeFile.files[0];
+    const effectiveFile = $effectiveFile.files[0];
+
+    $yamlOut.textContent = "";
+    $analysisOut.textContent = "";
+    setStatus("");
+    setPill("待上传");
+
+    if(!nativeFile || !effectiveFile){
+      setStatus("请先选择两张图片（原生图 + 有效图）。");
+      return;
+    }
+
+    $btnAnalyze.disabled = true;
+    try{
+      setPill("上传中");
+      setStatus("正在上传图片...");
+
+      const up1 = await uploadOne(nativeFile);
+      const up2 = await uploadOne(effectiveFile);
+
+      // STEP 1: OCR -> YAML
+      setPill("生成YAML");
+      setStatus("上传完成，正在生成 YAML（/api/g2/contrast_ocr）...");
+
+      const payload1 = {
+        native_image_id: up1.image_id,
+        effective_image_id: up2.image_id,
+        device_id: ($deviceId.value || "").trim() || null
+      };
+
+      const resp1 = await fetch("/api/g2/contrast_ocr", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload1)
+      });
+
+      if(!resp1.ok){
+        const t = await resp1.text();
+        throw new Error("生成 YAML 失败: " + t);
+      }
+
+      const data1 = await resp1.json(); // { yaml, saved_to }
+      const yamlText = data1.yaml || "";
+      $yamlOut.textContent = yamlText;
+      $yamlDetails.open = true;
+
+      // STEP 2: YAML -> Report
+      setPill("生成结论");
+      setStatus("YAML 已生成，正在生成评测结论（/api/report/contrast）...");
+
+      const payload2 = { yaml_text: yamlText };
+
+      const resp2 = await fetch("/api/report/contrast", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify(payload2)
+      });
+
+      if(!resp2.ok){
+        const t = await resp2.text();
+        throw new Error("生成结论失败: " + t);
+      }
+
+      const data2 = await resp2.json();
+      const analysisText = (data2.analysis_text || "").trim();
+      const editorialYaml = (data2.editorial_verdict_yaml || "").trim();
+
+      $analysisOut.textContent =
+        analysisText + (editorialYaml ? ("\n\n" + editorialYaml) : "");
+
+      $analysisDetails.open = true;
+
+      setPill("完成");
+      const savedYaml = data1.saved_to ? ("YAML已保存: " + data1.saved_to) : "";
+      setStatus("✅ 已生成。" + (savedYaml ? (" " + savedYaml) : ""));
+    }catch(e){
+      setPill("失败");
+      setStatus("❌ " + (e && e.message ? e.message : String(e)));
+    }finally{
+      $btnAnalyze.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
