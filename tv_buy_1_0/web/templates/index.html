@@ -3,14 +3,29 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>电视选购 1.0</title>
+  <title>晓春哥 XCG · 帮你智能推荐电视</title>
   <style>
-    :root{--bg:#0b1220;--text:#e5e7eb;--muted:#94a3b8;--border:rgba(148,163,184,.18);--accent:#60a5fa;--accent2:#34d399;--shadow:0 12px 30px rgba(0,0,0,.35);--radius:14px;}
+    :root{
+      --bg:#0b1220;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --border:rgba(148,163,184,.18);
+      --accent:#60a5fa;
+      --accent2:#34d399;
+      --shadow:0 12px 30px rgba(0,0,0,.35);
+      --radius:14px;
+    }
     *{box-sizing:border-box}
-    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;
-      background:radial-gradient(1200px 600px at 20% 0%, rgba(96,165,250,.25), transparent 60%),
-                 radial-gradient(1000px 500px at 90% 10%, rgba(52,211,153,.18), transparent 55%), var(--bg);
-      color:var(--text);}
+    body{
+      margin:0;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(96,165,250,.25), transparent 60%),
+        radial-gradient(1000px 500px at 90% 10%, rgba(52,211,153,.18), transparent 55%),
+        var(--bg);
+      color:var(--text);
+    }
+
     .wrap{max-width:980px;margin:28px auto;padding:0 16px;}
     .header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:14px;}
     .title{font-size:28px;font-weight:800;letter-spacing:.5px;margin:0;}
@@ -29,29 +44,118 @@
       flex-direction:column;
     }
 
+    /* ✅ 修复滚动“模糊交替/抖动” */
     .messages{
       flex:1;
       padding:18px 18px 8px 18px;
       overflow:auto;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
-      transform: translateZ(0);
-      backface-visibility: hidden;
-      contain: layout paint;
-      will-change: scroll-position;
+
+      transform: none;
+      backface-visibility: visible;
+      contain: none;
+      will-change: auto;
+
+      overflow-anchor: none;
+      scrollbar-gutter: stable;
+      scroll-behavior: auto;
     }
 
     .msg{display:flex;margin:10px 0;gap:10px;align-items:flex-start;}
-    .avatar{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:rgba(96,165,250,.18);border:1px solid var(--border);color:var(--accent);font-weight:700;flex:0 0 auto;}
-    .bubble{max-width:820px;padding:12px 14px;border-radius:14px;border:1px solid var(--border);background:rgba(17,28,51,.78);line-height:1.55;white-space:pre-wrap;word-break:break-word;}
-    .me .avatar{background:rgba(52,211,153,.16);color:var(--accent2);}
+
+    /* ✅ 品牌化：XCG 头像徽章（⚡在上，XCG在下） */
+    .avatar{
+      width:34px;height:34px;border-radius:12px;
+      display:flex;align-items:center;justify-content:center;
+      border:1px solid var(--border);
+      flex:0 0 auto;
+      position:relative;
+      overflow:hidden;
+      user-select:none;
+    }
+    .avatar .label{
+      font-weight:900;
+      font-size:10px;
+      letter-spacing:.2px;
+      line-height:1;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:2px;
+      white-space:nowrap;
+      padding:2px 2px;
+      max-width:100%;
+    }
+    .avatar .label .ico{
+      font-size:12px;
+      line-height:1;
+      display:block;
+      transform: translateY(-.2px);
+    }
+    .avatar .label .txt{
+      display:block;
+      line-height:1;
+      transform: translateY(.2px);
+    }
+
+    /* Bot 徽章 */
+    .bot .avatar{
+      background:
+        radial-gradient(14px 14px at 30% 25%, rgba(96,165,250,.45), transparent 60%),
+        linear-gradient(180deg, rgba(96,165,250,.22), rgba(2,6,23,.18));
+      color:rgba(229,231,235,.95);
+      box-shadow: 0 10px 22px rgba(96,165,250,.14);
+    }
+    .bot .avatar:before{
+      content:"";
+      position:absolute; inset:-40% -60%;
+      background: linear-gradient(90deg, rgba(96,165,250,.0), rgba(96,165,250,.35), rgba(96,165,250,.0));
+      transform: rotate(20deg);
+      animation: sheen 2.8s linear infinite;
+      opacity:.55;
+      pointer-events:none;
+    }
+    @keyframes sheen{
+      0%{transform: translateX(-40%) rotate(20deg);}
+      100%{transform: translateX(40%) rotate(20deg);}
+    }
+
+    /* Me 徽章 */
+    .me .avatar{
+      background:
+        radial-gradient(14px 14px at 30% 25%, rgba(52,211,153,.35), transparent 60%),
+        linear-gradient(180deg, rgba(52,211,153,.16), rgba(2,6,23,.18));
+      color:rgba(229,231,235,.95);
+      box-shadow: 0 10px 22px rgba(52,211,153,.10);
+    }
+
+    .bubble{
+      max-width:820px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(17,28,51,.78);
+      line-height:1.55;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
     .me .bubble{background:rgba(16,185,129,.10);border-color:rgba(52,211,153,.25);}
 
     .meta{color:var(--muted);font-size:12px;padding:0 18px 10px 18px;border-top:1px solid rgba(148,163,184,.10);background:rgba(15,23,42,.55);}
     .composer{padding:12px 12px 14px 12px;border-top:1px solid rgba(148,163,184,.16);background:rgba(15,23,42,.80);display:flex;gap:10px;align-items:flex-end;}
-    textarea{flex:1;resize:none;min-height:44px;max-height:160px;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.22);background:rgba(2,6,23,.35);color:var(--text);outline:none;line-height:1.4;}
+    textarea{
+      flex:1;resize:none;min-height:44px;max-height:160px;
+      padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.35);color:var(--text);outline:none;line-height:1.4;
+    }
     textarea:focus{border-color:rgba(96,165,250,.55);box-shadow:0 0 0 4px rgba(96,165,250,.12);}
-    .btn{padding:10px 14px;border-radius:12px;border:1px solid rgba(96,165,250,.45);background:rgba(96,165,250,.18);color:var(--text);cursor:pointer;font-weight:700;height:44px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;}
+    .btn{
+      padding:10px 14px;border-radius:12px;border:1px solid rgba(96,165,250,.45);
+      background:rgba(96,165,250,.18);color:var(--text);cursor:pointer;font-weight:700;
+      height:44px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
+    }
     .btn:hover{filter:brightness(1.12);}
     .btn:disabled{opacity:.55;cursor:not-allowed;filter:none;}
 
@@ -85,27 +189,38 @@
       line-height: 1.55;
       display: none;
       z-index: 20;
-      transform: translateZ(0);
-      backface-visibility: hidden;
-      contain: paint;
+
+      transform: none;
+      backface-visibility: visible;
+      contain: none;
     }
     .brand-dock.on{ display:block; }
     .brand-dock .bd-title{ color: var(--text); font-weight: 900; margin-bottom: 6px; }
     .brand-dock .bd-desc{ white-space: pre-wrap; color: rgba(229,231,235,.92); font-size: 13px; }
     .brand-dock .bd-hint{ color: var(--muted); font-size: 12px; margin-top: 6px; }
 
-    .navrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .linkbtn{
-      display:inline-flex;align-items:center;gap:8px;
-      padding:8px 12px;border-radius:999px;
-      border:1px solid var(--border);
-      background:rgba(15,23,42,.55);
-      color:var(--muted);
-      text-decoration:none;
-      font-size:12px;
+    .navrow{display:none}
+
+    .typing{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      color:rgba(229,231,235,.90);
       font-weight:800;
+      font-size:13px;
     }
-    .linkbtn:hover{filter:brightness(1.12);color:var(--text);}
+    .dots{display:inline-flex;gap:4px;}
+    .dot{
+      width:6px;height:6px;border-radius:999px;
+      background:rgba(148,163,184,.90);
+      animation: blink 1.2s infinite ease-in-out;
+    }
+    .dot:nth-child(2){animation-delay:.15s}
+    .dot:nth-child(3){animation-delay:.30s}
+    @keyframes blink{
+      0%, 80%, 100%{opacity:.25; transform: translateY(0);}
+      40%{opacity:1; transform: translateY(-1px);}
+    }
 
     @media (max-width:700px){
       .layout{height:calc(100vh - 110px);}
@@ -119,11 +234,8 @@
   <div class="wrap">
     <div class="header">
       <div>
-        <h1 class="title">电视选购 1.0 <span style="font-size:16px;font-weight:700;color:var(--muted)">（聊天入口）</span></h1>
+        <h1 class="title">晓春哥 XCG <span style="font-size:16px;font-weight:700;color:var(--muted)">· 帮你智能推荐电视</span></h1>
         <p class="subtitle">流程：先点尺寸 → 再选价格区间 → 再选品牌（可选） → 再用途；也支持“重置”。</p>
-        <div class="navrow" style="margin-top:10px;">
-          <a class="linkbtn" href="/output">📷 去「对比度截图分析」</a>
-        </div>
       </div>
       <div class="badge" id="stateBadge">已收集：暂无</div>
     </div>
@@ -134,7 +246,7 @@
       <div class="brand-dock" id="brandDock">
         <div class="bd-title"></div>
         <div class="bd-desc"></div>
-        <div class="bd-hint">提示：点击品牌会自动发送“只看该品牌”。也可以点“不限定品牌”，或直接输入用途：ps5 / movie / bright。</div>
+        <div class="bd-hint">提示：点击品牌会自动发送“只看该品牌”。也可以点“不限定品牌”。</div>
       </div>
 
       <div class="meta">Enter 发送，Shift+Enter 换行</div>
@@ -147,16 +259,39 @@
   </div>
 
 <script>
+  // =========================================================
+  // ✅ session_id（保持会话上下文给后端/智谱）
+  // =========================================================
+  let SESSION_ID = (localStorage.getItem('tvbuy_session_id') || '').trim();
+  if(!SESSION_ID){
+    SESSION_ID = (Date.now().toString(16) + Math.random().toString(16).slice(2));
+    localStorage.setItem('tvbuy_session_id', SESSION_ID);
+  }
+
   // ===== State =====
-  // 说明：增加 budget_min/budget_max（前端兜底过滤用；后端若支持也可直接利用）
-  let state = {size:null, scene:null, budget:null, brand:null, budget_bucket:null, budget_min:null, budget_max:null};
+  let state = {
+    size:null,
+    size_unlimited:false,
+    scene:null,
+    budget:null,
+    brand:null,
+    brand_lock:null,
+    brand_unlimited:false,
+    brand_panel_force_show:false,
+    budget_bucket:null,
+    budget_min:null,
+    budget_max:null,
+    pending_compare:null,
+    pending_size:null,
+    brand_done:false,
+    ui:null
+  };
 
   const $messages = document.getElementById('messages');
   const $input = document.getElementById('input');
   const $sendBtn = document.getElementById('sendBtn');
   const $stateBadge = document.getElementById('stateBadge');
 
-  // ✅ 品牌介绍固定栏
   const $brandDock = document.getElementById('brandDock');
   function showBrandDock(title, desc){
     if(!$brandDock) return;
@@ -169,7 +304,6 @@
     if(!$brandDock) return;
     $brandDock.classList.remove('on');
   }
-  // 点击空白处隐藏 dock（触屏更稳）
   document.addEventListener('click', (e) => {
     if(!$brandDock) return;
     if($brandDock.classList.contains('on') && !e.target.closest('#brandDock') && !e.target.closest('.qbtn')){
@@ -177,10 +311,8 @@
     }
   });
 
-  // ✅ 固定尺寸
   const SIZE_OPTIONS = [43, 50, 55, 65, 75, 85, 98, 100, 115, 116];
 
-  // ✅ 价格区间（前端写死；显示“xx%人选择”）
   const PRICE_BUCKETS = {
     43: [
       {range:"0-1200", percent:22},
@@ -254,7 +386,13 @@
     ],
   };
 
-  // ✅ 品牌按钮（略：保持你原来的 BRAND_OPTIONS 不变）
+  // ✅ 用途快捷按钮（不含“直接推荐”按钮）
+  const SCENE_OPTIONS = [
+    { key:"ps5",   label:"🎮 PS5/打游戏", sendText:"ps5" },
+    { key:"movie", label:"🎬 看电影/追剧", sendText:"movie" },
+    { key:"bright",label:"☀️ 白天强光客厅", sendText:"bright" },
+  ];
+
   const BRAND_OPTIONS = [
     { key:"海信", label:"海信", sendText:"只看海信", desc:`海信是国内综合实力较强的电视品牌之一，在 Mini LED 分区背光、整机系统整合和产品稳定性方面积累较深。\n其产品覆盖从中端到高端多个层级，注重在亮度、分区控光和画质调校之间取得平衡。\n整体技术路线偏向稳健与成熟，强调长期可靠性与产品完整度。` },
     { key:"TCL", label:"TCL", sendText:"只看TCL", desc:`TCL 是 Mini LED 技术的重要推动者之一，在分区数量、峰值亮度和硬件参数方面长期保持激进策略。\n其电视产品强调硬件规格优势，通过大量分区和高亮度提升控光能力和画面冲击力。\n在大尺寸显示和高动态内容中具备明显参数优势，整体技术风格偏向工程化和参数导向。` },
@@ -279,18 +417,73 @@
     { key:"小度", label:"小度（Xiaodu）", sendText:"只看小度", desc:`小度是百度旗下的智能硬件品牌，其电视产品强调语音交互和智能生态能力。\n显示硬件定位偏基础，核心价值更多集中在智能交互、内容与系统服务层面。` },
   ];
 
+  let inFlight = false;
+  let typingNode = null;
+
+  function setInFlight(on){
+    inFlight = !!on;
+    $sendBtn.disabled = inFlight;
+    $input.disabled = inFlight;
+    document.querySelectorAll('.qbtn').forEach(btn => { btn.disabled = inFlight; });
+  }
+
+  function buildAvatarHTML(role){
+    if(role === 'me'){
+      return `<span class="label"><span class="ico">👤</span><span class="txt">我</span></span>`;
+    }
+    return `<span class="label"><span class="ico">⚡</span><span class="txt">XCG</span></span>`;
+  }
+
+  function showTyping(){
+    if(typingNode) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'msg bot';
+
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    av.innerHTML = buildAvatarHTML('bot');
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = `
+      <span class="typing">加载中…
+        <span class="dots">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        </span>
+      </span>
+    `;
+
+    wrap.appendChild(av);
+    wrap.appendChild(bubble);
+    $messages.appendChild(wrap);
+    typingNode = wrap;
+
+    requestAnimationFrame(() => { $messages.scrollTop = $messages.scrollHeight; });
+  }
+
+  function hideTyping(){
+    if(typingNode && typingNode.parentNode){
+      typingNode.parentNode.removeChild(typingNode);
+    }
+    typingNode = null;
+  }
+
   function updateBadge(s){
     if(!s){ $stateBadge.textContent = '已收集：暂无'; return; }
     const parts = [];
     if(s.brand) parts.push(`品牌=${s.brand}`);
-    if(s.budget_min !== null && s.budget_min !== undefined){
+    if(s.brand_unlimited) parts.push(`品牌=不限`);
+    if(s.budget_bucket === 'skip') parts.push(`预算=不限`);
+    else if(s.budget_min !== null && s.budget_min !== undefined){
       const min = s.budget_min;
       const max = (s.budget_max === null || s.budget_max === undefined) ? '+' : s.budget_max;
       parts.push(`价格区间=${min}-${max}`);
     }else if(s.budget_bucket && s.budget_bucket !== 'skip'){
       parts.push(`价格区间=${s.budget_bucket}`);
     }
-    if(s.size !== null && s.size !== undefined) parts.push(`尺寸=${s.size}寸`);
+    if(s.size_unlimited) parts.push(`尺寸=不限`);
+    else if(s.size !== null && s.size !== undefined) parts.push(`尺寸=${s.size}寸`);
     if(s.scene) parts.push(`场景=${s.scene}`);
     $stateBadge.textContent = '已收集：' + (parts.length ? parts.join('，') : '暂无');
   }
@@ -298,75 +491,6 @@
   function autosize(){
     $input.style.height = 'auto';
     $input.style.height = Math.min($input.scrollHeight, 160) + 'px';
-  }
-
-  // ===== 价格区间解析 + 前端兜底过滤 =====
-  function parseBucketRange(str){
-    const t = (str || '').trim();
-    if(!t) return null;
-    if(t === 'skip' || t === '不限预算' || t === '不筛价格') return {min:null, max:null, raw:'skip'};
-    const m1 = t.match(/^(\d+)\s*-\s*(\d+)$/);
-    if(m1) return {min:Number(m1[1]), max:Number(m1[2]), raw:t};
-    const m2 = t.match(/^(\d+)\s*\+$/);
-    if(m2) return {min:Number(m2[1]), max:null, raw:t};
-    return null;
-  }
-
-  function extractPriceFromLine(line){
-    // 支持：￥7599 / ¥7599 / ¥ 7,599
-    const m = line.match(/[￥¥]\s*([\d,]+)/);
-    if(!m) return null;
-    const n = Number(String(m[1]).replace(/,/g,''));
-    return Number.isFinite(n) ? n : null;
-  }
-
-  function filterReplyByBudget(text){
-    const min = state && state.budget_min !== undefined ? state.budget_min : null;
-    const max = state && state.budget_max !== undefined ? state.budget_max : null;
-    if(min === null && max === null) return text;
-
-    const lines = String(text || '').split('\n');
-    let removed = 0;
-
-    const kept = lines.filter((ln) => {
-      // 只过滤“候选列表”那类含价格的条目；其它说明行保留
-      const p = extractPriceFromLine(ln);
-      if(p === null) return true;
-
-      if(min !== null && p < min){ removed++; return false; }
-      if(max !== null && p > max){ removed++; return false; }
-      return true;
-    });
-
-    if(removed > 0){
-      const tag = `\n（前端已按价格区间过滤：${min === null ? '' : min}${max === null ? '+' : '-' + max}，已隐藏 ${removed} 条越界项）`;
-      return kept.join('\n') + tag;
-    }
-    return kept.join('\n');
-  }
-
-  function addMsg(role, text, ui){
-    const wrap = document.createElement('div');
-    wrap.className = 'msg ' + (role === 'me' ? 'me' : 'bot');
-
-    const av = document.createElement('div');
-    av.className = 'avatar';
-    av.textContent = role === 'me' ? '我' : 'AI';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text || '';
-
-    if(role !== 'me' && ui){
-      if(ui.type === 'size_select') renderSizeButtons(bubble);
-      if(ui.type === 'price_select') renderPriceButtons(bubble, ui.size);
-      if(ui.type === 'brand_select') renderBrandButtons(bubble);
-    }
-
-    wrap.appendChild(av);
-    wrap.appendChild(bubble);
-    $messages.appendChild(wrap);
-    $messages.scrollTop = $messages.scrollHeight;
   }
 
   function renderTitle(container, text){
@@ -385,9 +509,17 @@
       btn.className = 'qbtn';
       btn.type = 'button';
       btn.textContent = `${s}寸`;
-      btn.addEventListener('click', () => sendText(`${s}寸`));
+      btn.addEventListener('click', () => sendText(`${s}寸`, 'ui_button'));
       wrap.appendChild(btn);
     });
+
+    const unlim = document.createElement('button');
+    unlim.className = 'qbtn';
+    unlim.type = 'button';
+    unlim.textContent = '不限尺寸';
+    unlim.addEventListener('click', () => sendText('不限尺寸', 'ui_button'));
+    wrap.appendChild(unlim);
+
     container.appendChild(wrap);
   }
 
@@ -410,7 +542,7 @@
       btn.className = 'qbtn';
       btn.type = 'button';
       btn.textContent = `${b.range}（${b.percent}%人选择）`;
-      btn.addEventListener('click', () => sendText(b.range));
+      btn.addEventListener('click', () => sendText(b.range, 'ui_button'));
       wrap.appendChild(btn);
     });
 
@@ -418,10 +550,8 @@
     skipBtn.className = 'qbtn';
     skipBtn.type = 'button';
     skipBtn.textContent = '不限预算（不筛价格）';
-    skipBtn.addEventListener('click', () => sendText('skip'));
+    skipBtn.addEventListener('click', () => sendText('skip', 'ui_button'));
     wrap.appendChild(skipBtn);
-
-    // ✅ 已删除「我手动输入预算」按钮（按你要求）
 
     container.appendChild(wrap);
   }
@@ -441,7 +571,7 @@
       btn.addEventListener('mouseleave', hideBrandDock);
       btn.addEventListener('touchstart', () => showBrandDock(opt.label, opt.desc), {passive:true});
 
-      btn.addEventListener('click', () => sendText(opt.sendText));
+      btn.addEventListener('click', () => sendText(opt.sendText, 'ui_button'));
       wrap.appendChild(btn);
     });
 
@@ -452,17 +582,217 @@
     skip.addEventListener('mouseenter', () => showBrandDock('不限定品牌', '不限制品牌，会在候选里按系统排序给 Top3。'));
     skip.addEventListener('mouseleave', hideBrandDock);
     skip.addEventListener('touchstart', () => showBrandDock('不限定品牌', '不限制品牌，会在候选里按系统排序给 Top3。'), {passive:true});
-    skip.addEventListener('click', () => sendText('不限定品牌'));
+    skip.addEventListener('click', () => sendText('不限定品牌', 'ui_button'));
     wrap.appendChild(skip);
 
     container.appendChild(wrap);
   }
 
-  async function callChat(text){
+  // ✅ 用途快捷按钮（仅用途，不含“直接推荐”）
+  function renderSceneButtons(container){
+    renderTitle(container, '请选择【用途】');
+    const wrap = document.createElement('div');
+    wrap.className = 'quick-replies';
+
+    SCENE_OPTIONS.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'qbtn';
+      btn.type = 'button';
+      btn.textContent = opt.label;
+      btn.addEventListener('click', () => sendText(opt.sendText, 'ui_button'));
+      wrap.appendChild(btn);
+    });
+
+    container.appendChild(wrap);
+  }
+
+  function addMsg(role, text, ui){
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + (role === 'me' ? 'me' : 'bot');
+
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    av.innerHTML = buildAvatarHTML(role);
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text || '';
+
+    if(role !== 'me' && ui){
+      if(ui.type === 'size_select') renderSizeButtons(bubble);
+      if(ui.type === 'price_select') renderPriceButtons(bubble, ui.size);
+      if(ui.type === 'brand_select') renderBrandButtons(bubble);
+      if(ui.type === 'scene_select') renderSceneButtons(bubble);
+    }
+
+    wrap.appendChild(av);
+    wrap.appendChild(bubble);
+    $messages.appendChild(wrap);
+
+    requestAnimationFrame(() => { $messages.scrollTop = $messages.scrollHeight; });
+  }
+
+  function parseBucketRange(str){
+    const t = (str || '').trim();
+    if(!t) return null;
+    if(t === 'skip' || t === '不限预算' || t === '不筛价格') return {min:null, max:null, raw:'skip'};
+    const t2 = t.replace(/[—–－～]/g, '-');
+    const m1 = t2.match(/^(\d+)\s*-\s*(\d+)$/);
+    if(m1) return {min:Number(m1[1]), max:Number(m1[2]), raw:`${m1[1]}-${m1[2]}`};
+    const m2 = t2.match(/^(\d+)\s*\+$/);
+    if(m2) return {min:Number(m2[1]), max:null, raw:`${m2[1]}+`};
+    return null;
+  }
+
+  function _isCandidateRow(line){ return /^\s*\d+\.\s+/.test(line || ''); }
+
+  function extractPriceFromLine(line){
+    const s = String(line || '');
+    let m = s.match(/[￥¥]\s*([\d,]+(?:\.\d+)?)/);
+    if(m){
+      const n = Number(String(m[1]).replace(/,/g,''));
+      return Number.isFinite(n) ? n : null;
+    }
+    m = s.match(/(?:价格|到手价|参考价)\s*[:：]?\s*([\d,]{3,})/);
+    if(m){
+      const n = Number(String(m[1]).replace(/,/g,''));
+      return Number.isFinite(n) ? n : null;
+    }
+    if(_isCandidateRow(s)){
+      m = s.match(/\|\s*([\d,]{3,})\s*$/);
+      if(m){
+        const n = Number(String(m[1]).replace(/,/g,''));
+        return Number.isFinite(n) ? n : null;
+      }
+    }
+    return null;
+  }
+
+  function filterReplyByBudget(text){
+    const min = state && state.budget_min !== undefined ? state.budget_min : null;
+    const max = state && state.budget_max !== undefined ? state.budget_max : null;
+    if(min === null && max === null) return text;
+
+    const lines = String(text || '').split('\n');
+    let removed = 0;
+
+    const kept = lines.filter((ln) => {
+      if(!_isCandidateRow(ln)) return true;
+      const p = extractPriceFromLine(ln);
+      if(p === null) return true;
+      if(min !== null && p < min){ removed++; return false; }
+      if(max !== null && p > max){ removed++; return false; }
+      return true;
+    });
+
+    if(removed > 0){
+      const tag = `\n（前端已按价格区间过滤：${min === null ? '' : min}${max === null ? '+' : '-' + max}，已隐藏 ${removed} 条越界项）`;
+      return kept.join('\n') + tag;
+    }
+    return kept.join('\n');
+  }
+
+  function maybeUpdateBudgetRangeFromText(t){
+    const r = parseBucketRange(t);
+    if(!r) return;
+    if(r.raw === 'skip'){
+      state.budget_bucket = 'skip';
+      state.budget_min = null;
+      state.budget_max = null;
+      state.budget = null;
+      return;
+    }
+    state.budget_bucket = r.raw;
+    state.budget_min = r.min;
+    state.budget_max = r.max;
+    state.budget = null;
+  }
+
+  function computeBrandDone(){
+    if(state.brand) return true;
+    if(state.brand_unlimited) return true;
+    if(state.brand_lock && Array.isArray(state.brand_lock) && state.brand_lock.length) return true;
+    return false;
+  }
+
+  function shouldShowBrandPanel(){
+    if(state && state.ui && typeof state.ui.show_brand_panel === 'boolean'){
+      return !!state.ui.show_brand_panel;
+    }
+    if(state && state.size && state.budget_bucket && !state.brand_done){
+      return true;
+    }
+    return false;
+  }
+
+  function shouldShowScenePanel(){
+    if(!(state.size || state.size_unlimited)) return false;
+    if(!state.budget_bucket) return false;
+    if(!computeBrandDone()) return false;
+    if(state.scene) return false;
+    return true;
+  }
+
+  function maybePromptNextUi(){
+    if(!state.size && !state.size_unlimited){
+      addMsg('bot', '请先选择【尺寸】（点下面按钮）。', {type:'size_select'});
+      return;
+    }
+    if((state.size || state.size_unlimited) && !state.budget_bucket){
+      if(state.size_unlimited && !state.size){
+        addMsg('bot', '请选择【价格区间】（可直接输入 6000-8500 / 18000+ / skip），或输入：不限预算。', null);
+      }else{
+        addMsg('bot', '请选择【价格区间】（点下面按钮）。', {type:'price_select', size: state.size});
+      }
+      return;
+    }
+    if(shouldShowBrandPanel()){
+      addMsg('bot', '接下来（可选）：点击品牌进行筛选；或点“不限定品牌”跳过。', {type:'brand_select'});
+      return;
+    }
+    if(shouldShowScenePanel()){
+      addMsg('bot', '最后一步：请选择用途（也支持在输入框输入 ps5 / movie / bright）。', {type:'scene_select'});
+      return;
+    }
+  }
+
+  function syncInputHint(){
+    if(state && state.pending_size){
+      $input.placeholder = "请先确认：回复“是/65寸/65”确认尺寸，或输入正确尺寸…";
+      return;
+    }
+
+    state.brand_done = computeBrandDone();
+
+    if(state && (state.size || state.size_unlimited) && state.budget_bucket){
+      if(shouldShowBrandPanel()){
+        $input.placeholder = "你也可以输入：不限定品牌 / 查看品牌 / 换品牌 …";
+      }else if(state.brand_done){
+        if(!state.scene){
+          $input.placeholder = "请输入用途（ps5/movie/bright），或直接提问（如：这几台怎么选）…";
+        }else{
+          $input.placeholder = "输入问题… 例如：这两台哪个好 / 参数解释 / 适合我吗 / 为什么推荐…";
+        }
+      }else{
+        $input.placeholder = "你可以输入品牌（如 TCL/海信/索尼），或输入：不限定品牌；也可输入：查看品牌";
+      }
+    }else if(state && (state.size || state.size_unlimited)){
+      $input.placeholder = "请先点价格区间按钮（或直接输入 7000-10000 / 3500+ / skip）…";
+    }else{
+      $input.placeholder = "请先点尺寸按钮…";
+    }
+  }
+
+  async function callChat(text, source){
     const resp = await fetch('/api/chat', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text, state})
+      body: JSON.stringify({
+        text,
+        state,
+        source: (source || 'user_text'),
+        session_id: SESSION_ID
+      })
     });
     if(!resp.ok){
       const t = await resp.text();
@@ -471,77 +801,50 @@
     return await resp.json();
   }
 
-  function syncInputHint(){
-    if(state && state.size && state.budget_bucket){
-      $input.placeholder = "输入用途/品牌… 例如：ps5 / movie / bright / 我只看TCL";
-    }else if(state && state.size){
-      $input.placeholder = "请先点价格区间按钮（或直接输入 7000-10000 / 3500+ / skip）…";
-    }else{
-      $input.placeholder = "请先点尺寸按钮…";
-    }
-  }
-
-  function maybePromptNextUi(){
-    if(!state.size){
-      addMsg('bot', '请先选择【尺寸】（点下面按钮）。', {type:'size_select'});
-      return;
-    }
-    if(state.size && !state.budget_bucket){
-      addMsg('bot', '请选择【价格区间】（点下面按钮）。', {type:'price_select', size: state.size});
-      return;
-    }
-    if(state.size && state.budget_bucket && !state.brand){
-      addMsg('bot', '接下来（可选）：点击品牌进行筛选；或跳过直接输入用途：ps5 / movie / bright。', {type:'brand_select'});
-      return;
-    }
-  }
-
-  // 在发送前：如果用户输入的是价格区间，则前端同步 state.budget_min/max（用于过滤）
-  function maybeUpdateBudgetRangeFromText(t){
-    const r = parseBucketRange(t);
-    if(!r) return;
-
-    if(r.raw === 'skip'){
-      state.budget_bucket = 'skip';
-      state.budget_min = null;
-      state.budget_max = null;
-      state.budget = null;
-      return;
-    }
-
-    state.budget_bucket = r.raw;
-    state.budget_min = r.min;
-    state.budget_max = r.max;
-    state.budget = null;
-  }
-
-  async function sendText(text){
+  async function sendText(text, source){
     const t = (text || '').trim();
     if(!t) return;
+    if(inFlight) return;
 
-    // 若是选了尺寸，通常后端会重置预算；这里前端也做一次稳妥重置
-    if(/^\d+\s*寸$/.test(t)){
+    if(source === 'ui_button' && /^\d+\s*寸$/.test(t)){
       state.budget_bucket = null;
       state.budget_min = null;
       state.budget_max = null;
       state.budget = null;
       state.brand = null;
+      state.brand_lock = null;
+      state.brand_unlimited = false;
+      state.brand_panel_force_show = false;
       state.scene = null;
+      state.pending_compare = null;
+      state.pending_size = null;
+      state.brand_done = false;
+      state.ui = null;
+    }
+
+    if(/^只看/.test(t) || t === '不限定品牌' || t === '不限品牌'){
+      state.brand_done = true;
     }
 
     maybeUpdateBudgetRangeFromText(t);
 
     hideBrandDock();
     addMsg('me', t, null);
-    $sendBtn.disabled = true;
+
+    setInFlight(true);
+    showTyping();
 
     try{
-      const data = await callChat(t);
+      const data = await callChat(t, source || 'user_text');
+
+      hideTyping();
+
       if(data && data.state){
-        // 合并后端 state，但保留我们前端的 budget_min/max（除非后端也给了）
-        const ns = data.state;
-        state = Object.assign({}, state, ns);
+        state = Object.assign({}, state, data.state);
       }
+      state.ui = (data && data.ui) ? data.ui : state.ui;
+
+      state.brand_done = computeBrandDone();
 
       updateBadge(state);
       syncInputHint();
@@ -552,9 +855,10 @@
       maybePromptNextUi();
 
     }catch(e){
+      hideTyping();
       addMsg('bot', '⚠️ 请求失败：' + (e && e.message ? e.message : e), null);
     }finally{
-      $sendBtn.disabled = false;
+      setInFlight(false);
       $input.focus();
     }
   }
@@ -562,9 +866,10 @@
   async function send(){
     const text = ($input.value || '').trim();
     if(!text) return;
+    if(inFlight) return;
     $input.value = '';
     autosize();
-    await sendText(text);
+    await sendText(text, 'user_text');
   }
 
   async function boot(){
@@ -572,14 +877,20 @@
     autosize();
     $input.focus();
 
-    addMsg('bot', '请先选择【尺寸】（点下面按钮）。只要点一个尺寸，我再继续问预算区间/用途/品牌。', {type:'size_select'});
+    addMsg('bot', '请先选择【尺寸】（点下面按钮）。只要点一个尺寸，我再继续问价格区间/品牌。', {type:'size_select'});
     syncInputHint();
 
     try{
-      const data = await callChat("");
-      if(data && data.state) state = Object.assign({}, state, data.state);
+      const data = await callChat("", "user_text");
+      if(data && data.state){
+        state = Object.assign({}, state, data.state);
+      }
+      state.ui = (data && data.ui) ? data.ui : state.ui;
+      state.brand_done = computeBrandDone();
+
       updateBadge(state);
       syncInputHint();
+
     }catch(e){}
   }
 

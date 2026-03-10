@@ -24,6 +24,15 @@ tv_buy_1_0/run_reco.py  （完整版｜可一键复制粘贴替换）
   - 做法：过滤掉输出中包含 “VRR/可变刷新/变刷新” 的行
 - ✅ 不要出现“不适合”字样：统一改为“备注：”
 - ✅ 一句话结论加强：确保永远有内容、且更像“专业报告”的收尾
+
+✅ 重要：OpenAI 已彻底移除，LLM 改为智谱：
+- 使用环境变量：ZHIPU_API_KEY / ZHIPU_BASE_URL / ZHIPU_MODEL / TVBUY_ZHIPU_TIMEOUT
+
+✅ 本次修复（你截图问题）：
+- ✅ 首发时间格式统一（展示统一为 YYYY-MM）
+  - 不管源数据是 "2025-12-01 00:00:00" / "2025-12-01" / "2025-3" / "2025.9" / "20250301" 等
+  - 展示统一为：YYYY-MM（只精确到月份）
+  - 内部排序/月份计算统一先解析，避免 int/ split 崩溃
 """
 
 import argparse
@@ -47,22 +56,15 @@ from tv_buy_1_0.reasons_v2 import (
 )
 
 # =========================================================
-# LLM 开关（软依赖）
+# LLM 开关（软依赖）—— 智谱AI
 # =========================================================
 from tv_buy_1_0.config.settings import ENABLE_LLM  # noqa: E402
 
-OPENAI_API_KEY = (os.getenv("OPENAI_API_KEY", "") or "").strip()
+ZHIPU_API_KEY = (os.getenv("ZHIPU_API_KEY", "") or "").strip()
+HAS_LLM = bool(ZHIPU_API_KEY)
 
 try:
-    # openai-python >= 1.x
-    from openai import OpenAI  # noqa: F401
-    HAS_OPENAI_PKG = True
-except Exception:
-    HAS_OPENAI_PKG = False
-
-HAS_LLM = bool(HAS_OPENAI_PKG and OPENAI_API_KEY)
-
-try:
+    # 这里的 enhance_with_llm 为智谱 HTTP 调用（不依赖 openai 包）
     from tv_buy_1_0.llm.enhance import enhance_with_llm  # noqa: E402
 except Exception:
     enhance_with_llm = None  # type: ignore
@@ -169,6 +171,7 @@ def _note_clean(note: Any, scene: str) -> str:
     if scene == "ps5":
         s = _drop_vrr_text(s)
 
+    # 不要出现“不适合”
     s = s.replace("不适合：", "").replace("不适合", "").strip(" ：:;；")
 
     if not s:
@@ -183,12 +186,105 @@ def _note_clean(note: Any, scene: str) -> str:
 
 
 # =========================================================
+# ✅ 首发时间统一：解析/展示 YYYY-MM（并修复 months_ago/date_rank 解析失败）
+# =========================================================
+def _parse_ymd_any(v: Any) -> Optional[Tuple[int, int, int]]:
+    """
+    尽可能把各种日期字符串解析为 (Y, M, D)
+    支持：
+    - 2025-12-01 00:00:00
+    - 2025-12-01
+    - 2025-12
+    - 2025-3
+    - 2025.9
+    - 2025/09
+    - 2025年3月
+    - 202503 / 20250301
+    - 仅 2025
+    解析不到返回 None
+    """
+    if v is None:
+        return None
+    s = str(v).strip()
+    if not s or s.lower() in ("none", "null", "nan", "-", "未知"):
+        return None
+
+    # 先干掉末尾时区或时间（最常见：空格/T/+ 之后）
+    # 例如：2025-12-01 00:00:00 / 2025-12-01T00:00:00 / 2025-12-01 00:00:00+08:00
+    s = re.split(r"[ T\+]", s, maxsplit=1)[0]
+
+    # 统一分隔符/中文
+    s = (
+        s.replace("/", "-")
+        .replace(".", "-")
+        .replace("年", "-")
+        .replace("月", "")
+        .replace("日", "")
+    ).strip()
+
+    # YYYY-MM(-DD)
+    m = re.match(r"^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$", s)
+    if m:
+        y = int(m.group(1))
+        mo = int(m.group(2))
+        dd = int(m.group(3)) if m.group(3) else 1
+        if 1 <= mo <= 12:
+            if not (1 <= dd <= 31):
+                dd = 1
+            return y, mo, dd
+        return None
+
+    # YYYYMMDD / YYYYMM
+    m = re.match(r"^(\d{4})(\d{2})(\d{2})?$", s)
+    if m:
+        y = int(m.group(1))
+        mo = int(m.group(2))
+        dd = int(m.group(3)) if m.group(3) else 1
+        if 1 <= mo <= 12:
+            if not (1 <= dd <= 31):
+                dd = 1
+            return y, mo, dd
+        return None
+
+    # 只给了年份
+    m = re.match(r"^(\d{4})$", s)
+    if m:
+        return int(m.group(1)), 1, 1
+
+    # 兜底：提取前两段数字当 Y/M
+    m = re.search(r"(\d{4})\D+(\d{1,2})", s)
+    if m:
+        y = int(m.group(1))
+        mo = int(m.group(2))
+        if 1 <= mo <= 12:
+            return y, mo, 1
+
+    return None
+
+
+def fmt_launch_yyyy_mm(v: Any) -> str:
+    """展示统一：YYYY-MM（只到月份）"""
+    ymd = _parse_ymd_any(v)
+    if not ymd:
+        return "-"
+    y, m, _ = ymd
+    return f"{y:04d}-{m:02d}"
+
+
+def _norm_launch_yyyy_mmdd(v: Any) -> Optional[str]:
+    """内部排序/计算用：统一成 YYYY-MM-DD（没有日则补 01）"""
+    ymd = _parse_ymd_any(v)
+    if not ymd:
+        return None
+    y, m, d = ymd
+    return f"{y:04d}-{m:02d}-{d:02d}"
+
+
+# =========================================================
 # ✅ 一句话结论（加强版：更专业、更完整）
 # =========================================================
 def _price_band_hint(price: Optional[float], budget: Optional[int]) -> str:
-    """
-    输出更像报告：在预算内处于什么位置（顶预算/中位/保守）
-    """
+    """输出更像报告：在预算内处于什么位置（顶预算/中位/保守）"""
     if price is None or budget is None or budget <= 0:
         return ""
     try:
@@ -203,14 +299,11 @@ def _price_band_hint(price: Optional[float], budget: Optional[int]) -> str:
 
 
 def _ps5_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
-    """
-    PS5 强一句话结论（不提 VRR）：
-    低延迟 + HDMI2.1/ALLM + HDR亮度/分区 + 预算定位 + 适合人群
-    """
+    """PS5 强一句话结论（不提 VRR）"""
     brand = tv.get("brand") or ""
     model = tv.get("model") or ""
     size = tv.get("size_inch") or "?"
-    launch = tv.get("launch_date") or "?"
+    launch = fmt_launch_yyyy_mm(tv.get("launch_date"))
     price_v = parse_price(tv.get("street_rmb"))
     price_txt = fmt(tv.get("street_rmb"))
 
@@ -233,7 +326,6 @@ def _ps5_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
 
     band = _price_band_hint(price_v, budget)
 
-    # 适合人群（不“尬黑”，只做专业偏好描述）
     who = []
     if lag is not None and isinstance(lag, (int, float)) and float(lag) <= 8:
         who.append("更适合偏竞技/动作类玩家")
@@ -258,7 +350,7 @@ def _movie_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
     brand = tv.get("brand") or ""
     model = tv.get("model") or ""
     size = tv.get("size_inch") or "?"
-    launch = tv.get("launch_date") or "?"
+    launch = fmt_launch_yyyy_mm(tv.get("launch_date"))
     price_v = parse_price(tv.get("street_rmb"))
     price_txt = fmt(tv.get("street_rmb"))
 
@@ -290,7 +382,7 @@ def _bright_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
     brand = tv.get("brand") or ""
     model = tv.get("model") or ""
     size = tv.get("size_inch") or "?"
-    launch = tv.get("launch_date") or "?"
+    launch = fmt_launch_yyyy_mm(tv.get("launch_date"))
     price_v = parse_price(tv.get("street_rmb"))
     price_txt = fmt(tv.get("street_rmb"))
 
@@ -319,15 +411,11 @@ def _bright_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
 # utilities
 # =========================
 def months_ago(yyyymm: Any) -> Optional[int]:
-    if not yyyymm:
+    """统一先解析为 (Y,M,D)，只用 Y/M 计算"""
+    ymd = _parse_ymd_any(yyyymm)
+    if not ymd:
         return None
-    parts = str(yyyymm).strip().split("-")
-    if len(parts) < 2:
-        return None
-    try:
-        y, m = int(parts[0]), int(parts[1])
-    except Exception:
-        return None
+    y, m, _ = ymd
     now = datetime.now()
     return (now.year - y) * 12 + (now.month - m)
 
@@ -409,12 +497,10 @@ def brand_rank(brand: Optional[str]) -> int:
 
 
 def launch_year_from_date(d: Any) -> int:
-    if not d:
+    ymd = _parse_ymd_any(d)
+    if not ymd:
         return 0
-    try:
-        return int(str(d)[:4])
-    except Exception:
-        return 0
+    return int(ymd[0])
 
 
 def parse_price(p: Any) -> Optional[float]:
@@ -433,17 +519,12 @@ def parse_price(p: Any) -> Optional[float]:
 
 
 def date_rank(d: Any) -> int:
-    if not d:
+    """统一按解析结果返回 yyyymmdd，用于排序"""
+    ymd = _parse_ymd_any(d)
+    if not ymd:
         return 0
-    s = str(d).strip()
-    parts = s.split("-")
-    try:
-        y = int(parts[0])
-        m = int(parts[1]) if len(parts) > 1 else 1
-        dd = int(parts[2]) if len(parts) > 2 else 1
-        return y * 10000 + m * 100 + dd
-    except Exception:
-        return 0
+    y, m, dd = ymd
+    return y * 10000 + m * 100 + dd
 
 
 def _safe_int(x: Any) -> Optional[int]:
@@ -500,24 +581,15 @@ def _load_yaml_file(path: str) -> Optional[Dict[str, Any]]:
 
 
 def _normalize_first_release(x: Any) -> Optional[str]:
-    if not x:
+    """
+    ✅ 统一走 _parse_ymd_any，避免漏掉 "2025-12-01 00:00:00" 这种
+    内部保持 YYYY-MM-DD（没有日补 01）
+    """
+    s = str(x).strip() if x is not None else ""
+    if not s:
         return None
-    s = str(x).strip()
-    s = s.replace(".", "-").replace("/", "-")
-    m = re.match(r"^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$", s)
-    if not m:
-        m2 = re.search(r"(\d{4})[-/\.](\d{1,2})", s)
-        if not m2:
-            return None
-        y = int(m2.group(1))
-        mm = int(m2.group(2))
-        return f"{y:04d}-{mm:02d}"
-    y = int(m.group(1))
-    mm = int(m.group(2))
-    dd = m.group(3)
-    if dd is None:
-        return f"{y:04d}-{mm:02d}"
-    return f"{y:04d}-{mm:02d}-{int(dd):02d}"
+    n = _norm_launch_yyyy_mmdd(s)
+    return n
 
 
 def _build_tcl_model_name(base_model: str, size_inch: int) -> str:
@@ -578,6 +650,7 @@ def load_tcl_excel_variants() -> List[Dict[str, Any]]:
                 "model": model_name,
                 "size_inch": int(size_inch),
                 "street_rmb": price_cny,
+                # ✅ 这里保持 YYYY-MM-DD（用于排序/月份计算），展示再统一 fmt_launch_yyyy_mm
                 "launch_date": first_release,
                 "input_lag_ms_60hz": None,
                 "hdmi_2_1_ports": hdmi_2_1_ports,
@@ -610,7 +683,13 @@ def all_by_size_from_db(target: int) -> List[Dict[str, Any]]:
     conn.row_factory = sqlite3.Row
     rows = conn.execute(sql, (int(target),)).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        # ✅ DB 里可能是 "2025-12-01 00:00:00"；内部统一成 YYYY-MM-DD
+        d["launch_date"] = _norm_launch_yyyy_mmdd(d.get("launch_date")) or d.get("launch_date")
+        out.append(d)
+    return out
 
 
 def all_by_size(target: int, brand: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -689,8 +768,9 @@ def format_candidates(size: int, total: int, cands: List[Dict[str, Any]], brand:
 
     lines = [head, "（展示前10）"]
     for i, tv in enumerate(cands, 1):
+        launch_mm = fmt_launch_yyyy_mm(tv.get("launch_date"))
         lines.append(
-            f"{i}. {tv.get('brand')} {tv.get('model')} {tv.get('size_inch')}寸 | 首发 {tv.get('launch_date')} | ￥{fmt(tv.get('street_rmb'))}"
+            f"{i}. {tv.get('brand')} {tv.get('model')} {tv.get('size_inch')}寸 | 首发 {launch_mm} | ￥{fmt(tv.get('street_rmb'))}"
         )
     return "\n".join(lines)
 
@@ -821,6 +901,7 @@ def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: O
         v = parse_price(tv.get("street_rmb"))
         return float(v) if v is not None else -1.0
 
+    # ✅ Top3 最终展示：按价格从高到低
     top3_display = sorted(top3, key=lambda x: _p(x), reverse=True)
 
     head = f"电视选购 1.0 | {size} 寸 | 场景={scene}"
@@ -849,7 +930,8 @@ def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: O
         if tv.get("peak_brightness_nits") and isinstance(tv["peak_brightness_nits"], (int, float)) and tv["peak_brightness_nits"] > 6000:
             warn = " ⚠️亮度口径偏激进"
         title = f"{tv.get('brand')} {tv.get('model')} {tv.get('size_inch')}寸"
-        lines.append(f"{i}. {title} | 首发 {tv.get('launch_date')} | ￥{fmt(tv.get('street_rmb'))}{warn}")
+        launch_mm = fmt_launch_yyyy_mm(tv.get("launch_date"))
+        lines.append(f"{i}. {title} | 首发 {launch_mm} | ￥{fmt(tv.get('street_rmb'))}{warn}")
 
         if scene == "ps5":
             rs, note = reasons_ps5_v2(tv)
@@ -912,6 +994,7 @@ def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: O
 
     base_text = "\n".join(lines)
 
+    # ====== 智谱 LLM 增强（可选）======
     if ENABLE_LLM and HAS_LLM and enhance_with_llm is not None:
         try:
             llm_text = enhance_with_llm(
@@ -927,13 +1010,10 @@ def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: O
             return base_text + f"\n\n⚠️ LLM 增强失败，已回退规则引擎结果：{e}"
 
     if ENABLE_LLM and (not HAS_LLM):
-        reason = []
-        if not OPENAI_API_KEY:
-            reason.append("未设置 OPENAI_API_KEY")
-        if not HAS_OPENAI_PKG:
-            reason.append("未安装 openai 包")
-        why = "；".join(reason) if reason else "LLM 未满足启用条件"
-        return base_text + f"\n\n⚠️ ENABLE_LLM=1，但 {why}，已使用规则引擎结果。"
+        return base_text + "\n\n⚠️ ENABLE_LLM=1，但未设置 ZHIPU_API_KEY，已使用规则引擎结果。"
+
+    if ENABLE_LLM and enhance_with_llm is None:
+        return base_text + "\n\n⚠️ ENABLE_LLM=1，但 tv_buy_1_0.llm.enhance 未正确加载，已使用规则引擎结果。"
 
     return base_text
 

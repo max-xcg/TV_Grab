@@ -1,164 +1,153 @@
 # -*- coding: utf-8 -*-
 """
-tv_buy_1_0/llm/enhance.py  （2.0｜支持“晓春哥 XCG”本地素材注入｜可一键复制粘贴替换）
+tv_buy_1_0/llm/enhance.py  （完整版｜可一键复制粘贴替换）
 
-用法：
-- run_reco.py 调用 enhance_with_llm(top3, size, scene, budget) -> str
-- 会尝试读取 tv_buy_1_0/data_raw/xcg_notes/ 下的文本作为“参考资料”
-- 模型被要求：只能引用资料中出现的观点/结论；资料缺失则不提及
+目标：
+- 移除 OpenAI 依赖
+- 改为调用 智谱AI（open.bigmodel.cn） /paas/v4/chat/completions
+- 对外暴露 enhance_with_llm(...) 给 run_reco.py 使用
+
+环境变量：
+- ZHIPU_API_KEY        必填
+- ZHIPU_BASE_URL       可选，默认 https://open.bigmodel.cn/api/paas/v4
+- ZHIPU_MODEL          可选，默认 glm-4-plus
+- TVBUY_ZHIPU_TIMEOUT  可选，默认 6 秒
 """
 
 from __future__ import annotations
 
+import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
-
-from openai import OpenAI
-
-
-def _env(name: str, default: str = "") -> str:
-    return (os.getenv(name, default) or "").strip()
+import time
+import urllib.request
+import urllib.error
+from typing import Any, Dict, List, Optional
 
 
-def _get_client() -> OpenAI:
-    api_key = _env("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is empty")
-
-    base_url = _env("OPENAI_BASE_URL")
-    if base_url:
-        return OpenAI(api_key=api_key, base_url=base_url)
-    return OpenAI(api_key=api_key)
+def _env(key: str, default: str = "") -> str:
+    return (os.environ.get(key, "") or default).strip()
 
 
-def _get_model() -> str:
-    model = _env("OPENAI_MODEL", "gpt-5.2")
-    return model or "gpt-5.2"
+def _zhipu_endpoint() -> str:
+    base = _env("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
+    return f"{base}/chat/completions"
 
 
-def _to_brief_candidate(tv: Dict[str, Any]) -> Dict[str, Any]:
-    keys = [
-        "brand",
-        "model",
-        "size_inch",
-        "street_rmb",
-        "launch_date",
-        "input_lag_ms_60hz",
-        "hdmi_2_1_ports",
-        "allm",
-        "vrr",
-        "peak_brightness_nits",
-        "local_dimming_zones",
-        "reflection_specular",
-        "uniformity_gray50_max_dev",
-        "color_gamut_dci_p3",
-        "_score",
-        "_year",
-        "_source",
-    ]
-    out: Dict[str, Any] = {}
-    for k in keys:
-        if k in tv:
-            out[k] = tv.get(k)
-    return out
+def _zhipu_timeout() -> float:
+    try:
+        return float(_env("TVBUY_ZHIPU_TIMEOUT", "6") or "6")
+    except Exception:
+        return 6.0
 
 
-def _load_xcg_notes(max_files: int = 6, max_chars_per_file: int = 3500) -> Tuple[str, List[str]]:
-    """
-    读取本地 XCG 素材（你自己整理/转写的文字）
-    返回：(拼好的参考资料文本, 使用到的文件名列表)
-    """
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # tv_buy_1_0/
-    notes_dir = os.path.join(base_dir, "data_raw", "xcg_notes")
-    if not os.path.isdir(notes_dir):
-        return "", []
-
-    exts = (".md", ".txt", ".yaml", ".yml")
-    files = [f for f in os.listdir(notes_dir) if f.lower().endswith(exts)]
-    files.sort()  # 你可以用文件名控制优先级，比如 01_xxx.md
-
-    used: List[str] = []
-    chunks: List[str] = []
-    for fn in files[:max_files]:
-        path = os.path.join(notes_dir, fn)
+def _post_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(url=url, data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+            txt = raw.decode("utf-8", errors="replace")
+            obj = json.loads(txt) if txt else {}
+            return obj if isinstance(obj, dict) else {}
+    except urllib.error.HTTPError as e:
+        raw = b""
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                txt = f.read()
+            raw = e.read() or b""
         except Exception:
-            continue
-
-        txt = (txt or "").strip()
-        if not txt:
-            continue
-
-        if len(txt) > max_chars_per_file:
-            txt = txt[:max_chars_per_file] + "\n...（已截断）"
-
-        used.append(fn)
-        chunks.append(f"[来源：{fn}]\n{txt}")
-
-    if not chunks:
-        return "", []
-
-    ref = "\n\n---\n\n".join(chunks)
-    return ref, used
+            pass
+        msg = raw.decode("utf-8", errors="replace") if raw else str(e)
+        raise RuntimeError(f"Zhipu HTTPError {getattr(e, 'code', '')}: {msg}")
+    except Exception as e:
+        raise RuntimeError(f"Zhipu request failed: {e}")
 
 
-def enhance_with_llm(
-    top3: List[Dict[str, Any]],
-    size: int,
-    scene: str,
-    budget: Optional[int] = None,
-) -> str:
-    client = _get_client()
-    model = _get_model()
+def _extract_chat_content(resp: Dict[str, Any]) -> str:
+    """
+    兼容常见返回结构：
+    resp["choices"][0]["message"]["content"]
+    """
+    try:
+        choices = resp.get("choices")
+        if isinstance(choices, list) and choices:
+            c0 = choices[0] if isinstance(choices[0], dict) else {}
+            msg = c0.get("message") if isinstance(c0.get("message"), dict) else {}
+            content = msg.get("content")
+            if isinstance(content, str):
+                return content.strip()
+    except Exception:
+        pass
+    return ""
 
-    brief = [_to_brief_candidate(x) for x in (top3 or [])]
 
-    xcg_ref, xcg_files = _load_xcg_notes()
+def _build_prompt(top3: List[Dict[str, Any]], size: int, scene: str, budget: Optional[int]) -> str:
+    """
+    这里用“补充解读”定位：不要改你主推荐逻辑，只做更像咨询报告的扩写。
+    """
+    lines: List[str] = []
+    lines.append("你是电视选购顾问。请基于给定 Top3 机型，输出一段「简洁但专业」的增强解读。")
+    lines.append("要求：")
+    lines.append("- 不要编造不存在的参数；未知就说“未采集/需实测”。")
+    lines.append("- 不要出现“VRR/可变刷新/变刷新”。")
+    lines.append("- 不要出现“不适合”。如要提示风险，统一写“备注：……”。")
+    lines.append("- 中文输出，结构清晰，偏报告口吻。")
+    lines.append("")
+    lines.append(f"用户条件：尺寸={size}寸；场景={scene}；预算上限={budget if budget is not None else '未给出'}")
+    lines.append("")
+    lines.append("Top3（JSON，字段缺失即未采集）：")
+    lines.append(json.dumps(top3, ensure_ascii=False))
+    lines.append("")
+    lines.append("请输出：")
+    lines.append("1) 总体建议（3-5 句）")
+    lines.append("2) Top3 分别 2-3 句要点（不要罗列太多参数）")
+    lines.append("3) 一句话结论（像咨询报告收尾）")
+    return "\n".join(lines)
 
-    system_prompt = (
-        "你是显示/电视评测工程师 + 主机游戏玩家顾问。"
-        "你要基于提供的候选数据给出冷静、可执行、可对比的建议。\n"
-        "硬规则：\n"
-        "1) 不要编造不存在的参数；缺失就写“缺失/需实测/需确认”。\n"
-        "2) 如果提供了【晓春哥XCG参考资料】，只能引用资料中明确出现的观点/结论，不能脑补。\n"
-        "3) 输出短、信息密度高：对比点 + 风险点 + 适合/不适合人群。\n"
-        "4) 避免夸张营销词。"
-    )
 
-    user_prompt = (
-        f"用户条件：品牌=TCL，尺寸≈{size}寸，场景={scene}，预算≤{budget if budget is not None else '未知'}。\n"
-        f"候选Top3（JSON）：\n{brief}\n\n"
-    )
+def enhance_with_llm(top3: List[Dict[str, Any]], size: int, scene: str, budget: Optional[int] = None) -> str:
+    api_key = _env("ZHIPU_API_KEY", "")
+    if not api_key:
+        raise RuntimeError("Missing ZHIPU_API_KEY")
 
-    if xcg_ref:
-        user_prompt += (
-            "【晓春哥XCG参考资料｜仅可引用其中出现的观点/口径】\n"
-            f"{xcg_ref}\n\n"
-            f"请在输出中单独增加一节：'XCG 观点对照'，并注明引用来自哪些文件（从这些文件名里选：{xcg_files}）。\n"
-        )
-    else:
-        user_prompt += (
-            "未提供任何XCG参考资料：请不要提及“晓春哥XCG”。\n"
-        )
+    model = _env("ZHIPU_MODEL", "glm-4-plus") or "glm-4-plus"
+    url = _zhipu_endpoint()
+    timeout = _zhipu_timeout()
 
-    user_prompt += (
-        "请输出：\n"
-        "A) 1句总评（偏结论）\n"
-        "B) 3台逐台点评（每台3~5条：优势/风险/建议确认项）\n"
-        "C) 下单/观望建议（告诉用户缺失项如何补齐验证）\n"
-    )
+    prompt = _build_prompt(top3=top3, size=size, scene=scene, budget=budget)
 
-    resp = client.responses.create(
-        model=model,
-        input=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    payload: Dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "你是专业、谨慎、不会编造数据的电视选购顾问。"},
+            {"role": "user", "content": prompt},
         ],
-    )
+        "temperature": 0.4,
+        "max_tokens": 900,
+    }
 
-    text = (resp.output_text or "").strip()
+    t0 = time.time()
+    resp = _post_json(url=url, headers=headers, payload=payload, timeout=timeout)
+    text = _extract_chat_content(resp)
+
     if not text:
-        raise RuntimeError("LLM returned empty output_text")
-    return text
+        raise RuntimeError(f"Empty response from Zhipu. raw={resp}")
+
+    # 最后兜底过滤：避免模型输出带到 VRR 或 “不适合”
+    low = text.lower()
+    if ("vrr" in low) or ("可变刷新" in text) or ("变刷新" in text):
+        # 粗暴剔除含关键字的行
+        kept = []
+        for ln in text.splitlines():
+            lnl = ln.strip().lower()
+            if ("vrr" in lnl) or ("可变刷新" in ln) or ("变刷新" in ln):
+                continue
+            kept.append(ln)
+        text = "\n".join(kept).strip()
+
+    text = text.replace("不适合：", "备注：").replace("不适合", "备注：")
+    _ = time.time() - t0
+    return text.strip()
