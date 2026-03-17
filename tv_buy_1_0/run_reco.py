@@ -28,11 +28,11 @@ tv_buy_1_0/run_reco.py  （完整版｜可一键复制粘贴替换）
 ✅ 重要：OpenAI 已彻底移除，LLM 改为智谱：
 - 使用环境变量：ZHIPU_API_KEY / ZHIPU_BASE_URL / ZHIPU_MODEL / TVBUY_ZHIPU_TIMEOUT
 
-✅ 本次修复（你截图问题）：
+✅ 本次修复：
 - ✅ 首发时间格式统一（展示统一为 YYYY-MM）
-  - 不管源数据是 "2025-12-01 00:00:00" / "2025-12-01" / "2025-3" / "2025.9" / "20250301" 等
-  - 展示统一为：YYYY-MM（只精确到月份）
-  - 内部排序/月份计算统一先解析，避免 int/ split 崩溃
+- ✅ 只保留这 10 个品牌参与候选/推荐：
+  海信 / TCL / Vidda / 雷鸟 / 创维 / 小米 / 索尼 / 三星 / LG / 东芝
+- ✅ 红米并入小米（redmi/红米 -> mi）
 """
 
 import argparse
@@ -55,34 +55,24 @@ from tv_buy_1_0.reasons_v2 import (
     top1_summary_bright,
 )
 
-# =========================================================
-# LLM 开关（软依赖）—— 智谱AI
-# =========================================================
 from tv_buy_1_0.config.settings import ENABLE_LLM  # noqa: E402
 
 ZHIPU_API_KEY = (os.getenv("ZHIPU_API_KEY", "") or "").strip()
 HAS_LLM = bool(ZHIPU_API_KEY)
 
 try:
-    # 这里的 enhance_with_llm 为智谱 HTTP 调用（不依赖 openai 包）
     from tv_buy_1_0.llm.enhance import enhance_with_llm  # noqa: E402
 except Exception:
     enhance_with_llm = None  # type: ignore
 
-# =========================================================
-# Windows / FastAPI 子进程中文输出不炸
-# =========================================================
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # => tv_buy_1_0/
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB = os.path.join(BASE_DIR, "db", "tv.sqlite")
 PROFILES = os.path.join(BASE_DIR, "config", "profiles.yaml")
 
-# ✅ TCL Excel 导入目录（你的 import_tcl_excel_to_yaml.py 输出目录）
 TCL_EXCEL_DIR = os.path.join(BASE_DIR, "data_raw", "excel_import_tcl_v2")
-
-# ✅ 数据源策略开关：TCL 只用 excel_import_tcl_v2
 TCL_SOURCE_ONLY_EXCEL = True
 
 FIELD_CN = {
@@ -101,25 +91,36 @@ FIELD_CN = {
 SCENE_DESC = {
     "bright": "明亮客厅（白天观看优先）：亮度/抗反射 > 价格价值 > 分区控光 > 色域。",
     "movie": "电影观影（暗场优先）：分区控光/对比 > 亮度 > 反射/均匀性 > 价格。",
-    # ✅ 不再强调 VRR（缺失率高，避免影响可信度）
     "ps5": "PS5 游戏：输入延迟（越低越好）> HDMI2.1/ALLM > 亮度/分区（HDR游戏观感）。",
 }
 
-# =========================================================
-# ✅ 品牌权重（顺序：海信 > TCL > VIDDA > 雷鸟 > 创维 > 小米 > 索尼；其它压低）
-# =========================================================
-BRAND_MULTIPLIER: Dict[str, float] = {
-    "hisense": 1.12,   # 海信
-    "tcl": 1.10,       # TCL
-    "vidda": 1.08,     # VIDDA
-    "ffalcon": 1.06,   # 雷鸟
-    "skyworth": 1.04,  # 创维
-    "mi": 1.02,        # 小米
-    "sony": 1.01,      # 索尼
+ALLOWED_BRANDS = {
+    "hisense",
+    "tcl",
+    "vidda",
+    "ffalcon",
+    "skyworth",
+    "mi",
+    "sony",
+    "samsung",
+    "lg",
+    "toshiba",
 }
-OTHER_BRAND_MULTIPLIER = 0.95  # 其它品牌权重不要高：整体压低一点
 
-# 用于排序时的“品牌优先级”（越小越优先）
+BRAND_MULTIPLIER: Dict[str, float] = {
+    "hisense": 1.12,
+    "tcl": 1.10,
+    "vidda": 1.08,
+    "ffalcon": 1.06,
+    "skyworth": 1.04,
+    "mi": 1.02,
+    "sony": 1.01,
+    "samsung": 1.00,
+    "lg": 1.00,
+    "toshiba": 1.00,
+}
+OTHER_BRAND_MULTIPLIER = 0.95
+
 BRAND_RANK: Dict[str, int] = {
     "hisense": 0,
     "tcl": 1,
@@ -128,11 +129,11 @@ BRAND_RANK: Dict[str, int] = {
     "skyworth": 4,
     "mi": 5,
     "sony": 6,
+    "samsung": 7,
+    "lg": 8,
+    "toshiba": 9,
 }
 
-# =========================================================
-# ✅ PS5 输出过滤：不展示 VRR（缺失率高导致输出不稳定）
-# =========================================================
 _VRR_BLOCK_KWS = ("vrr", "可变刷新", "变刷新")
 
 
@@ -171,7 +172,6 @@ def _note_clean(note: Any, scene: str) -> str:
     if scene == "ps5":
         s = _drop_vrr_text(s)
 
-    # 不要出现“不适合”
     s = s.replace("不适合：", "").replace("不适合", "").strip(" ：:;；")
 
     if not s:
@@ -185,35 +185,14 @@ def _note_clean(note: Any, scene: str) -> str:
     return s
 
 
-# =========================================================
-# ✅ 首发时间统一：解析/展示 YYYY-MM（并修复 months_ago/date_rank 解析失败）
-# =========================================================
 def _parse_ymd_any(v: Any) -> Optional[Tuple[int, int, int]]:
-    """
-    尽可能把各种日期字符串解析为 (Y, M, D)
-    支持：
-    - 2025-12-01 00:00:00
-    - 2025-12-01
-    - 2025-12
-    - 2025-3
-    - 2025.9
-    - 2025/09
-    - 2025年3月
-    - 202503 / 20250301
-    - 仅 2025
-    解析不到返回 None
-    """
     if v is None:
         return None
     s = str(v).strip()
     if not s or s.lower() in ("none", "null", "nan", "-", "未知"):
         return None
 
-    # 先干掉末尾时区或时间（最常见：空格/T/+ 之后）
-    # 例如：2025-12-01 00:00:00 / 2025-12-01T00:00:00 / 2025-12-01 00:00:00+08:00
     s = re.split(r"[ T\+]", s, maxsplit=1)[0]
-
-    # 统一分隔符/中文
     s = (
         s.replace("/", "-")
         .replace(".", "-")
@@ -222,7 +201,6 @@ def _parse_ymd_any(v: Any) -> Optional[Tuple[int, int, int]]:
         .replace("日", "")
     ).strip()
 
-    # YYYY-MM(-DD)
     m = re.match(r"^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$", s)
     if m:
         y = int(m.group(1))
@@ -234,7 +212,6 @@ def _parse_ymd_any(v: Any) -> Optional[Tuple[int, int, int]]:
             return y, mo, dd
         return None
 
-    # YYYYMMDD / YYYYMM
     m = re.match(r"^(\d{4})(\d{2})(\d{2})?$", s)
     if m:
         y = int(m.group(1))
@@ -246,12 +223,10 @@ def _parse_ymd_any(v: Any) -> Optional[Tuple[int, int, int]]:
             return y, mo, dd
         return None
 
-    # 只给了年份
     m = re.match(r"^(\d{4})$", s)
     if m:
         return int(m.group(1)), 1, 1
 
-    # 兜底：提取前两段数字当 Y/M
     m = re.search(r"(\d{4})\D+(\d{1,2})", s)
     if m:
         y = int(m.group(1))
@@ -263,7 +238,6 @@ def _parse_ymd_any(v: Any) -> Optional[Tuple[int, int, int]]:
 
 
 def fmt_launch_yyyy_mm(v: Any) -> str:
-    """展示统一：YYYY-MM（只到月份）"""
     ymd = _parse_ymd_any(v)
     if not ymd:
         return "-"
@@ -272,7 +246,6 @@ def fmt_launch_yyyy_mm(v: Any) -> str:
 
 
 def _norm_launch_yyyy_mmdd(v: Any) -> Optional[str]:
-    """内部排序/计算用：统一成 YYYY-MM-DD（没有日则补 01）"""
     ymd = _parse_ymd_any(v)
     if not ymd:
         return None
@@ -280,11 +253,7 @@ def _norm_launch_yyyy_mmdd(v: Any) -> Optional[str]:
     return f"{y:04d}-{m:02d}-{d:02d}"
 
 
-# =========================================================
-# ✅ 一句话结论（加强版：更专业、更完整）
-# =========================================================
 def _price_band_hint(price: Optional[float], budget: Optional[int]) -> str:
-    """输出更像报告：在预算内处于什么位置（顶预算/中位/保守）"""
     if price is None or budget is None or budget <= 0:
         return ""
     try:
@@ -299,7 +268,6 @@ def _price_band_hint(price: Optional[float], budget: Optional[int]) -> str:
 
 
 def _ps5_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
-    """PS5 强一句话结论（不提 VRR）"""
     brand = tv.get("brand") or ""
     model = tv.get("model") or ""
     size = tv.get("size_inch") or "?"
@@ -407,11 +375,7 @@ def _bright_strong_summary(tv: Dict[str, Any], budget: Optional[int]) -> str:
     ).strip()
 
 
-# =========================
-# utilities
-# =========================
 def months_ago(yyyymm: Any) -> Optional[int]:
-    """统一先解析为 (Y,M,D)，只用 Y/M 计算"""
     ymd = _parse_ymd_any(yyyymm)
     if not ymd:
         return None
@@ -477,8 +441,14 @@ def norm_brand(brand: Optional[str]) -> Optional[str]:
         return "vidda"
     if b in ("雷鸟", "ffalcon", "f-falcon", "falcon", "f falcon"):
         return "ffalcon"
-    if b in ("创维", "skyworth", "酷开", "coocaa"):
+    if b in ("创维", "skyworth"):
         return "skyworth"
+    if b in ("三星", "samsung"):
+        return "samsung"
+    if b in ("lg",):
+        return "lg"
+    if b in ("东芝", "toshiba"):
+        return "toshiba"
     return b
 
 
@@ -519,7 +489,6 @@ def parse_price(p: Any) -> Optional[float]:
 
 
 def date_rank(d: Any) -> int:
-    """统一按解析结果返回 yyyymmdd，用于排序"""
     ymd = _parse_ymd_any(d)
     if not ymd:
         return 0
@@ -544,9 +513,6 @@ def _safe_int(x: Any) -> Optional[int]:
         return None
 
 
-# =========================
-# data loading
-# =========================
 def load_profile(scene: str):
     with open(PROFILES, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
@@ -568,9 +534,6 @@ def minmax(cands: List[Dict[str, Any]], key: str):
     return float(min(vals)), float(max(vals))
 
 
-# =========================
-# ✅ TCL Excel YAML source
-# =========================
 def _load_yaml_file(path: str) -> Optional[Dict[str, Any]]:
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -581,10 +544,6 @@ def _load_yaml_file(path: str) -> Optional[Dict[str, Any]]:
 
 
 def _normalize_first_release(x: Any) -> Optional[str]:
-    """
-    ✅ 统一走 _parse_ymd_any，避免漏掉 "2025-12-01 00:00:00" 这种
-    内部保持 YYYY-MM-DD（没有日补 01）
-    """
     s = str(x).strip() if x is not None else ""
     if not s:
         return None
@@ -650,7 +609,6 @@ def load_tcl_excel_variants() -> List[Dict[str, Any]]:
                 "model": model_name,
                 "size_inch": int(size_inch),
                 "street_rmb": price_cny,
-                # ✅ 这里保持 YYYY-MM-DD（用于排序/月份计算），展示再统一 fmt_launch_yyyy_mm
                 "launch_date": first_release,
                 "input_lag_ms_60hz": None,
                 "hdmi_2_1_ports": hdmi_2_1_ports,
@@ -669,9 +627,6 @@ def load_tcl_excel_variants() -> List[Dict[str, Any]]:
     return out
 
 
-# =========================
-# ✅ STRICT size match (NO ±5)
-# =========================
 def all_by_size_from_db(target: int) -> List[Dict[str, Any]]:
     sql = """
     SELECT *
@@ -686,7 +641,6 @@ def all_by_size_from_db(target: int) -> List[Dict[str, Any]]:
     out = []
     for r in rows:
         d = dict(r)
-        # ✅ DB 里可能是 "2025-12-01 00:00:00"；内部统一成 YYYY-MM-DD
         d["launch_date"] = _norm_launch_yyyy_mmdd(d.get("launch_date")) or d.get("launch_date")
         out.append(d)
     return out
@@ -708,8 +662,12 @@ def apply_filters(cands: List[Dict[str, Any]], brand: Optional[str] = None, budg
     bkey = norm_brand(brand)
 
     for tv in cands:
+        tvb = norm_brand(tv.get("brand"))
+
+        if tvb not in ALLOWED_BRANDS:
+            continue
+
         if bkey:
-            tvb = norm_brand(tv.get("brand"))
             if tvb != bkey:
                 continue
 
@@ -725,9 +683,6 @@ def apply_filters(cands: List[Dict[str, Any]], brand: Optional[str] = None, budg
     return out
 
 
-# =========================
-# candidates preview (for chat UI)
-# =========================
 def list_candidates(size: int, brand: Optional[str] = None, budget: Optional[int] = None, limit: int = 10) -> Tuple[int, List[Dict[str, Any]]]:
     cands = apply_filters(all_by_size(size, brand=brand), brand=brand, budget=budget)
 
@@ -775,9 +730,6 @@ def format_candidates(size: int, total: int, cands: List[Dict[str, Any]], brand:
     return "\n".join(lines)
 
 
-# =========================
-# scoring recommendation
-# =========================
 def get_top3(size: int, scene: str, brand: Optional[str] = None, budget: Optional[int] = None, year_prefer: int = 2026) -> List[Dict[str, Any]]:
     weights, negative_metrics, boolean_metrics, penalties = load_profile(scene)
 
@@ -861,9 +813,6 @@ def get_top3(size: int, scene: str, brand: Optional[str] = None, budget: Optiona
     return ranked[:3]
 
 
-# =========================
-# explanation text
-# =========================
 def reasons(tv: Dict[str, Any], scene: str) -> Tuple[List[str], str]:
     r: List[str] = []
     if scene == "ps5":
@@ -901,7 +850,6 @@ def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: O
         v = parse_price(tv.get("street_rmb"))
         return float(v) if v is not None else -1.0
 
-    # ✅ Top3 最终展示：按价格从高到低
     top3_display = sorted(top3, key=lambda x: _p(x), reverse=True)
 
     head = f"电视选购 1.0 | {size} 寸 | 场景={scene}"
@@ -959,7 +907,6 @@ def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: O
         lines.append(f"   - 备注：{note}")
         lines.append("")
 
-    # ✅ 一句话结论（加强版）
     lines.append("一句话结论：")
     summary = ""
     if scene == "ps5":
@@ -994,7 +941,6 @@ def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: O
 
     base_text = "\n".join(lines)
 
-    # ====== 智谱 LLM 增强（可选）======
     if ENABLE_LLM and HAS_LLM and enhance_with_llm is not None:
         try:
             llm_text = enhance_with_llm(
@@ -1018,9 +964,6 @@ def recommend_text(size: int, scene: str, brand: Optional[str] = None, budget: O
     return base_text
 
 
-# =========================
-# CLI entry
-# =========================
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--size", type=int, required=True)

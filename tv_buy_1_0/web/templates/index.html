@@ -44,27 +44,23 @@
       flex-direction:column;
     }
 
-    /* ✅ 修复滚动“模糊交替/抖动” */
     .messages{
       flex:1;
       padding:18px 18px 8px 18px;
       overflow:auto;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
-
-      transform: none;
-      backface-visibility: visible;
-      contain: none;
-      will-change: auto;
-
-      overflow-anchor: none;
-      scrollbar-gutter: stable;
-      scroll-behavior: auto;
+      transform:none;
+      backface-visibility:visible;
+      contain:none;
+      will-change:auto;
+      overflow-anchor:none;
+      scrollbar-gutter:stable;
+      scroll-behavior:auto;
     }
 
     .msg{display:flex;margin:10px 0;gap:10px;align-items:flex-start;}
 
-    /* ✅ 品牌化：XCG 头像徽章（⚡在上，XCG在下） */
     .avatar{
       width:34px;height:34px;border-radius:12px;
       display:flex;align-items:center;justify-content:center;
@@ -92,43 +88,41 @@
       font-size:12px;
       line-height:1;
       display:block;
-      transform: translateY(-.2px);
+      transform:translateY(-.2px);
     }
     .avatar .label .txt{
       display:block;
       line-height:1;
-      transform: translateY(.2px);
+      transform:translateY(.2px);
     }
 
-    /* Bot 徽章 */
     .bot .avatar{
       background:
         radial-gradient(14px 14px at 30% 25%, rgba(96,165,250,.45), transparent 60%),
         linear-gradient(180deg, rgba(96,165,250,.22), rgba(2,6,23,.18));
       color:rgba(229,231,235,.95);
-      box-shadow: 0 10px 22px rgba(96,165,250,.14);
+      box-shadow:0 10px 22px rgba(96,165,250,.14);
     }
     .bot .avatar:before{
       content:"";
       position:absolute; inset:-40% -60%;
-      background: linear-gradient(90deg, rgba(96,165,250,.0), rgba(96,165,250,.35), rgba(96,165,250,.0));
-      transform: rotate(20deg);
-      animation: sheen 2.8s linear infinite;
+      background:linear-gradient(90deg, rgba(96,165,250,.0), rgba(96,165,250,.35), rgba(96,165,250,.0));
+      transform:rotate(20deg);
+      animation:sheen 2.8s linear infinite;
       opacity:.55;
       pointer-events:none;
     }
     @keyframes sheen{
-      0%{transform: translateX(-40%) rotate(20deg);}
-      100%{transform: translateX(40%) rotate(20deg);}
+      0%{transform:translateX(-40%) rotate(20deg);}
+      100%{transform:translateX(40%) rotate(20deg);}
     }
 
-    /* Me 徽章 */
     .me .avatar{
       background:
         radial-gradient(14px 14px at 30% 25%, rgba(52,211,153,.35), transparent 60%),
         linear-gradient(180deg, rgba(52,211,153,.16), rgba(2,6,23,.18));
       color:rgba(229,231,235,.95);
-      box-shadow: 0 10px 22px rgba(52,211,153,.10);
+      box-shadow:0 10px 22px rgba(52,211,153,.10);
     }
 
     .bubble{
@@ -177,27 +171,26 @@
     .qbtn:disabled{opacity:.55;cursor:not-allowed;filter:none;}
 
     .brand-dock{
-      position: sticky;
-      bottom: 68px;
-      margin: 0 12px 10px 12px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(148,163,184,.22);
-      background: rgba(2,6,23,.78);
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.55;
-      display: none;
-      z-index: 20;
-
-      transform: none;
-      backface-visibility: visible;
-      contain: none;
+      position:sticky;
+      bottom:68px;
+      margin:0 12px 10px 12px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.22);
+      background:rgba(2,6,23,.78);
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.55;
+      display:none;
+      z-index:20;
+      transform:none;
+      backface-visibility:visible;
+      contain:none;
     }
-    .brand-dock.on{ display:block; }
-    .brand-dock .bd-title{ color: var(--text); font-weight: 900; margin-bottom: 6px; }
-    .brand-dock .bd-desc{ white-space: pre-wrap; color: rgba(229,231,235,.92); font-size: 13px; }
-    .brand-dock .bd-hint{ color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .brand-dock.on{display:block;}
+    .brand-dock .bd-title{color:var(--text);font-weight:900;margin-bottom:6px;}
+    .brand-dock .bd-desc{white-space:pre-wrap;color:rgba(229,231,235,.92);font-size:13px;}
+    .brand-dock .bd-hint{color:var(--muted);font-size:12px;margin-top:6px;}
 
     .navrow{display:none}
 
@@ -213,20 +206,20 @@
     .dot{
       width:6px;height:6px;border-radius:999px;
       background:rgba(148,163,184,.90);
-      animation: blink 1.2s infinite ease-in-out;
+      animation:blink 1.2s infinite ease-in-out;
     }
     .dot:nth-child(2){animation-delay:.15s}
     .dot:nth-child(3){animation-delay:.30s}
     @keyframes blink{
-      0%, 80%, 100%{opacity:.25; transform: translateY(0);}
-      40%{opacity:1; transform: translateY(-1px);}
+      0%, 80%, 100%{opacity:.25;transform:translateY(0);}
+      40%{opacity:1;transform:translateY(-1px);}
     }
 
     @media (max-width:700px){
       .layout{height:calc(100vh - 110px);}
       .bubble{max-width:100%;}
       .header{flex-direction:column;align-items:flex-start;}
-      .brand-dock{ bottom: 76px; }
+      .brand-dock{bottom:76px;}
     }
   </style>
 </head>
@@ -259,16 +252,12 @@
   </div>
 
 <script>
-  // =========================================================
-  // ✅ session_id（保持会话上下文给后端/智谱）
-  // =========================================================
   let SESSION_ID = (localStorage.getItem('tvbuy_session_id') || '').trim();
   if(!SESSION_ID){
     SESSION_ID = (Date.now().toString(16) + Math.random().toString(16).slice(2));
     localStorage.setItem('tvbuy_session_id', SESSION_ID);
   }
 
-  // ===== State =====
   let state = {
     size:null,
     size_unlimited:false,
@@ -386,35 +375,89 @@
     ],
   };
 
-  // ✅ 用途快捷按钮（不含“直接推荐”按钮）
   const SCENE_OPTIONS = [
     { key:"ps5",   label:"🎮 PS5/打游戏", sendText:"ps5" },
     { key:"movie", label:"🎬 看电影/追剧", sendText:"movie" },
     { key:"bright",label:"☀️ 白天强光客厅", sendText:"bright" },
   ];
 
+  // ✅ 只保留 10 个品牌
   const BRAND_OPTIONS = [
-    { key:"海信", label:"海信", sendText:"只看海信", desc:`海信是国内综合实力较强的电视品牌之一，在 Mini LED 分区背光、整机系统整合和产品稳定性方面积累较深。\n其产品覆盖从中端到高端多个层级，注重在亮度、分区控光和画质调校之间取得平衡。\n整体技术路线偏向稳健与成熟，强调长期可靠性与产品完整度。` },
-    { key:"TCL", label:"TCL", sendText:"只看TCL", desc:`TCL 是 Mini LED 技术的重要推动者之一，在分区数量、峰值亮度和硬件参数方面长期保持激进策略。\n其电视产品强调硬件规格优势，通过大量分区和高亮度提升控光能力和画面冲击力。\n在大尺寸显示和高动态内容中具备明显参数优势，整体技术风格偏向工程化和参数导向。` },
-    { key:"Vidda", label:"Vidda", sendText:"只看Vidda", desc:`Vidda 是海信旗下的年轻化子品牌，产品策略以高亮度、高配置和价格竞争力为核心。\n其电视在同价位段中强调参数表现，通过简化产品线与线上渠道运作。\n形成偏向性能导向的品牌形象。` },
-    { key:"雷鸟", label:"雷鸟（FFALCON）", sendText:"只看雷鸟", desc:`雷鸟是 TCL 旗下的互联网子品牌，产品以高分区数、高亮度和进攻性定价为主要特点。\n其电视强调硬件参数优势，主要面向线上市场。\n通过简化品牌溢价和渠道成本，在同价位段中形成较强的参数竞争力。` },
-    { key:"创维", label:"创维", sendText:"只看创维", desc:`创维是国内较早布局 OLED 电视的品牌之一，同时在 LCD、Mini LED 等多条显示技术路线均有产品布局。\n其电视产品强调显示技术积累与画面舒适度，在不同技术方案之间保持并行发展。\n整体定位偏向中高端市场。` },
-    { key:"小米", label:"小米", sendText:"只看小米", desc:`小米电视以高性价比和智能生态整合能力著称，强调配置与价格之间的竞争力。\n其电视产品通常与小米智能家居体系深度联动，功能完整，系统生态统一。\n在电视硬件之外更注重作为智能终端入口的角色定位。` },
-    { key:"索尼", label:"索尼（Sony）", sendText:"只看索尼", desc:`索尼是电视领域中以画质调校和影像算法见长的高端品牌，核心优势源自其长期积累的影视制作与专业显示技术。\n索尼电视强调对画面内容的认知分析，通过 XR 认知芯片对人物、景物、光影进行分对象处理，使画面在色彩还原、层次过渡和细节表现上更接近电影原片风格。\n整体画面取向偏向真实、自然，而非单纯追求高亮度或夸张对比。` },
-    { key:"三星", label:"三星（Samsung）", sendText:"只看三星", desc:`三星是全球电视出货量长期领先的品牌，在 Mini LED 与量子点显示技术上拥有成熟方案。\n其电视产品强调高亮度输出与稳定的色彩表现，画面风格明亮通透，在大尺寸和高动态范围内容中具有较强视觉冲击力。\n同时，三星在工业设计与整机制造方面经验丰富，产品外观与做工保持较高一致性。` },
-    { key:"LG", label:"LG", sendText:"只看LG", desc:`LG 是 OLED 自发光显示技术的核心推动厂商之一，在 OLED 面板制造和整机应用方面占据重要地位。\n自发光像素结构使其电视具备极高对比度和纯净黑位表现，在暗场画面和光影层次呈现上优势明显。\nLG 电视整体画面风格偏向影院化，强调沉浸感与画面深度。` },
-    { key:"长虹", label:"长虹", sendText:"只看长虹", desc:`长虹是国内老牌电视厂商，产品定位偏向务实和功能完整，覆盖价格区间较广。\n其电视产品注重基础显示性能与稳定使用体验，技术更新节奏相对稳健。\n在市场中以传统品牌形象和广泛覆盖能力长期存在。` },
-    { key:"卡萨帝", label:"卡萨帝（Casarte）", sendText:"只看卡萨帝", desc:`卡萨帝是海尔旗下的高端家电品牌，电视产品定位于高端与品质取向，强调设计感、用料水平与整体家居环境的融合。\n其电视更注重显示稳定性、做工细节和整体观感的一致性，技术路线偏向成熟与稳健，突出高端品牌形象与产品质感表达。` },
-    { key:"酷开", label:"酷开（Coocaa）", sendText:"只看酷开", desc:`酷开是创维旗下的互联网电视品牌，定位偏向年轻化与线上市场。\n其电视产品强调性价比与系统易用性，在硬件配置与价格之间保持竞争力，整体策略以规模化和快速迭代为主，突出互联网品牌属性` },
-    { key:"追觅", label:"追觅（DREAME）", sendText:"只看追觅", desc:`追觅原本以智能清洁电器为核心业务，近年来开始尝试进入电视等显示设备领域。\n其电视产品延续品牌偏工程化与配置导向的思路，强调硬件规格和智能功能整合，目前整体仍处于新兴探索阶段` },
-    { key:"海尔", label:"海尔（Haier）", sendText:"只看海尔", desc:`海尔在家电制造与渠道体系方面具备深厚积累，其电视产品更强调稳定性、系统整合能力以及家庭场景适配。\n整体技术路线偏成熟可靠，注重产品生命周期管理和品牌服务体系的完整性。` },
-    { key:"荣耀", label:"荣耀（HONOR）", sendText:"只看荣耀", desc:`荣耀电视延续其在消费电子领域的产品思路，强调设计简洁、系统流畅与多设备协同体验。\n其电视产品在定位上偏向年轻化与智能体验导向，在显示技术上采取相对稳健的路线。` },
-    { key:"华为", label:"华为（Huawei）", sendText:"只看华为", desc:`华为电视以“智慧屏”为核心定位，强调系统生态、分布式能力与多设备协同体验。\n其电视产品更侧重智能交互和系统层能力建设，在显示硬件层面采取相对保守而成熟的技术策略。` },
-    { key:"康佳", label:"康佳（KONKA）", sendText:"只看康佳", desc:`康佳是国内传统电视厂商之一，长期覆盖入门到中端市场。\n其电视产品定位偏向实用型，强调基础显示能力、功能完整度与价格覆盖广度，整体风格稳健。` },
-    { key:"松下", label:"松下（Panasonic）", sendText:"只看松下", desc:`松下在电视领域以专业显示技术和画面准确性见长，强调色彩还原的准确度与输出稳定性。\n其产品整体风格偏向工程化和专业显示取向，在影音显示领域拥有长期技术积累。` },
-    { key:"飞利浦", label:"飞利浦（PHILIPS）", sendText:"只看飞利浦", desc:`飞利浦电视强调画面调校与环境氛围表现，部分产品引入环境光联动等差异化设计。\n整体定位偏中高端，注重在显示效果之外营造整体观影氛围。` },
-    { key:"东芝", label:"东芝（TOSHIBA）", sendText:"只看东芝", desc:`东芝电视延续日系品牌一贯的工程化思路，强调显示稳定性、画面自然度和长期可靠性。\n在市场中以传统技术路线和品牌积累持续存在。` },
-    { key:"小度", label:"小度（Xiaodu）", sendText:"只看小度", desc:`小度是百度旗下的智能硬件品牌，其电视产品强调语音交互和智能生态能力。\n显示硬件定位偏基础，核心价值更多集中在智能交互、内容与系统服务层面。` },
+    {
+      key:"海信",
+      label:"海信",
+      sendText:"只看海信",
+      desc:`海信是国内综合实力较强的电视品牌之一，在 Mini LED 分区背光、整机系统整合和产品稳定性方面积累较深。
+其产品覆盖从中端到高端多个层级，注重在亮度、分区控光和画质调校之间取得平衡。
+整体技术路线偏向稳健与成熟，强调长期可靠性与产品完整度。`
+    },
+    {
+      key:"TCL",
+      label:"TCL",
+      sendText:"只看TCL",
+      desc:`TCL 是 Mini LED 技术的重要推动者之一，在分区数量、峰值亮度和硬件参数方面长期保持激进策略。
+其电视产品强调硬件规格优势，通过大量分区和高亮度提升控光能力和画面冲击力。
+在大尺寸显示和高动态内容中具备明显参数优势，整体技术风格偏向工程化和参数导向。`
+    },
+    {
+      key:"Vidda",
+      label:"Vidda",
+      sendText:"只看Vidda",
+      desc:`Vidda 是海信旗下的年轻化子品牌，产品策略以高亮度、高配置和价格竞争力为核心。
+其电视在同价位段中强调参数表现，通过简化产品线与线上渠道运作，形成偏向性能导向的品牌形象。`
+    },
+    {
+      key:"雷鸟",
+      label:"雷鸟（FFALCON）",
+      sendText:"只看雷鸟",
+      desc:`雷鸟是 TCL 旗下的互联网子品牌，产品以高分区数、高亮度和进攻性定价为主要特点。
+其电视强调硬件参数优势，主要面向线上市场。
+通过简化品牌溢价和渠道成本，在同价位段中形成较强的参数竞争力。`
+    },
+    {
+      key:"创维",
+      label:"创维",
+      sendText:"只看创维",
+      desc:`创维是国内较早布局 OLED 电视的品牌之一，同时在 LCD、Mini LED 等多条显示技术路线均有产品布局。
+其电视产品强调显示技术积累与画面舒适度，在不同技术方案之间保持并行发展。
+整体定位偏向中高端市场。`
+    },
+    {
+      key:"小米",
+      label:"小米（含红米）",
+      sendText:"只看小米",
+      desc:`小米电视以高性价比和智能生态整合能力著称，强调配置与价格之间的竞争力。
+其电视产品通常与小米智能家居体系深度联动，功能完整，系统生态统一。
+红米产品线也统一并入小米口径。`
+    },
+    {
+      key:"索尼",
+      label:"索尼（Sony）",
+      sendText:"只看索尼",
+      desc:`索尼是电视领域中以画质调校和影像算法见长的高端品牌，核心优势源自其长期积累的影视制作与专业显示技术。
+索尼电视强调对画面内容的认知分析，使画面在色彩还原、层次过渡和细节表现上更接近电影原片风格。`
+    },
+    {
+      key:"三星",
+      label:"三星（Samsung）",
+      sendText:"只看三星",
+      desc:`三星是全球电视出货量长期领先的品牌，在 Mini LED 与量子点显示技术上拥有成熟方案。
+其电视产品强调高亮度输出与稳定的色彩表现，画面风格明亮通透，在大尺寸和高动态范围内容中具有较强视觉冲击力。`
+    },
+    {
+      key:"LG",
+      label:"LG",
+      sendText:"只看LG",
+      desc:`LG 是 OLED 自发光显示技术的重要推动厂商之一，在 OLED 面板制造和整机应用方面占据重要地位。
+自发光像素结构使其电视具备极高对比度和纯净黑位表现，在暗场画面和光影层次呈现上优势明显。`
+    },
+    {
+      key:"东芝",
+      label:"东芝（TOSHIBA）",
+      sendText:"只看东芝",
+      desc:`东芝电视延续日系品牌一贯的工程化思路，强调显示稳定性、画面自然度和长期可靠性。
+在市场中以传统技术路线和品牌积累持续存在。`
+    },
   ];
 
   let inFlight = false;
@@ -470,21 +513,30 @@
   }
 
   function updateBadge(s){
-    if(!s){ $stateBadge.textContent = '已收集：暂无'; return; }
+    if(!s){
+      $stateBadge.textContent = '已收集：暂无';
+      return;
+    }
+
     const parts = [];
     if(s.brand) parts.push(`品牌=${s.brand}`);
     if(s.brand_unlimited) parts.push(`品牌=不限`);
-    if(s.budget_bucket === 'skip') parts.push(`预算=不限`);
-    else if(s.budget_min !== null && s.budget_min !== undefined){
+
+    if(s.budget_bucket === 'skip'){
+      parts.push(`预算=不限`);
+    }else if(s.budget_min !== null && s.budget_min !== undefined){
       const min = s.budget_min;
       const max = (s.budget_max === null || s.budget_max === undefined) ? '+' : s.budget_max;
       parts.push(`价格区间=${min}-${max}`);
     }else if(s.budget_bucket && s.budget_bucket !== 'skip'){
       parts.push(`价格区间=${s.budget_bucket}`);
     }
+
     if(s.size_unlimited) parts.push(`尺寸=不限`);
     else if(s.size !== null && s.size !== undefined) parts.push(`尺寸=${s.size}寸`);
+
     if(s.scene) parts.push(`场景=${s.scene}`);
+
     $stateBadge.textContent = '已收集：' + (parts.length ? parts.join('，') : '暂无');
   }
 
@@ -504,6 +556,7 @@
     renderTitle(container, '请选择【尺寸】');
     const wrap = document.createElement('div');
     wrap.className = 'quick-replies';
+
     SIZE_OPTIONS.forEach(s => {
       const btn = document.createElement('button');
       btn.className = 'qbtn';
@@ -588,7 +641,6 @@
     container.appendChild(wrap);
   }
 
-  // ✅ 用途快捷按钮（仅用途，不含“直接推荐”）
   function renderSceneButtons(container){
     renderTitle(container, '请选择【用途】');
     const wrap = document.createElement('div');
@@ -636,15 +688,20 @@
     const t = (str || '').trim();
     if(!t) return null;
     if(t === 'skip' || t === '不限预算' || t === '不筛价格') return {min:null, max:null, raw:'skip'};
+
     const t2 = t.replace(/[—–－～]/g, '-');
     const m1 = t2.match(/^(\d+)\s*-\s*(\d+)$/);
     if(m1) return {min:Number(m1[1]), max:Number(m1[2]), raw:`${m1[1]}-${m1[2]}`};
+
     const m2 = t2.match(/^(\d+)\s*\+$/);
     if(m2) return {min:Number(m2[1]), max:null, raw:`${m2[1]}+`};
+
     return null;
   }
 
-  function _isCandidateRow(line){ return /^\s*\d+\.\s+/.test(line || ''); }
+  function _isCandidateRow(line){
+    return /^\s*\d+\.\s+/.test(line || '');
+  }
 
   function extractPriceFromLine(line){
     const s = String(line || '');
@@ -653,11 +710,13 @@
       const n = Number(String(m[1]).replace(/,/g,''));
       return Number.isFinite(n) ? n : null;
     }
+
     m = s.match(/(?:价格|到手价|参考价)\s*[:：]?\s*([\d,]{3,})/);
     if(m){
       const n = Number(String(m[1]).replace(/,/g,''));
       return Number.isFinite(n) ? n : null;
     }
+
     if(_isCandidateRow(s)){
       m = s.match(/\|\s*([\d,]{3,})\s*$/);
       if(m){
@@ -689,12 +748,14 @@
       const tag = `\n（前端已按价格区间过滤：${min === null ? '' : min}${max === null ? '+' : '-' + max}，已隐藏 ${removed} 条越界项）`;
       return kept.join('\n') + tag;
     }
+
     return kept.join('\n');
   }
 
   function maybeUpdateBudgetRangeFromText(t){
     const r = parseBucketRange(t);
     if(!r) return;
+
     if(r.raw === 'skip'){
       state.budget_bucket = 'skip';
       state.budget_min = null;
@@ -702,6 +763,7 @@
       state.budget = null;
       return;
     }
+
     state.budget_bucket = r.raw;
     state.budget_min = r.min;
     state.budget_max = r.max;
@@ -738,6 +800,7 @@
       addMsg('bot', '请先选择【尺寸】（点下面按钮）。', {type:'size_select'});
       return;
     }
+
     if((state.size || state.size_unlimited) && !state.budget_bucket){
       if(state.size_unlimited && !state.size){
         addMsg('bot', '请选择【价格区间】（可直接输入 6000-8500 / 18000+ / skip），或输入：不限预算。', null);
@@ -746,10 +809,12 @@
       }
       return;
     }
+
     if(shouldShowBrandPanel()){
       addMsg('bot', '接下来（可选）：点击品牌进行筛选；或点“不限定品牌”跳过。', {type:'brand_select'});
       return;
     }
+
     if(shouldShowScenePanel()){
       addMsg('bot', '最后一步：请选择用途（也支持在输入框输入 ps5 / movie / bright）。', {type:'scene_select'});
       return;
@@ -794,10 +859,12 @@
         session_id: SESSION_ID
       })
     });
+
     if(!resp.ok){
       const t = await resp.text();
       throw new Error('HTTP ' + resp.status + ': ' + t);
     }
+
     return await resp.json();
   }
 
@@ -890,7 +957,6 @@
 
       updateBadge(state);
       syncInputHint();
-
     }catch(e){}
   }
 
@@ -900,6 +966,7 @@
       send();
     }
   });
+
   $input.addEventListener('input', autosize);
   $sendBtn.addEventListener('click', send);
 

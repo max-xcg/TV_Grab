@@ -20,6 +20,12 @@ tv_buy_1_0/web/app.py  （最终版｜可一键复制粘贴替换）
 - 支持“序号对比”（1 vs 2 / 1和2）与“机型对比”（A 和 B / A vs B）：
   - user_text 且开启智谱 => 走智谱生成对比结论（基于候选，不乱编）
   - 否则 => 返回本地字段对照兜底
+
+✅ 本次品牌收口（与你当前项目要求保持一致）：
+- 仅保留 10 个品牌参与前端候选/筛选/识别：
+  海信 / TCL / Vidda / 雷鸟 / 创维 / 小米（含红米） / 索尼 / 三星 / LG / 东芝
+- “酷开”并入创维
+- “红米”并入小米
 """
 
 from __future__ import annotations
@@ -39,6 +45,7 @@ from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+
 
 # =========================================================
 # ✅ 安全处理 stdout/stderr：避免 uvicorn 启动时 stderr 被关闭导致 lost sys.stderr
@@ -63,16 +70,19 @@ def _safe_rewrap_stream(stream, encoding: str = "utf-8"):
 sys.stdout = _safe_rewrap_stream(sys.stdout, "utf-8")
 sys.stderr = _safe_rewrap_stream(sys.stderr, "utf-8")
 
+
 # =========================================================
 # 你项目里已有：run_reco（保留推荐逻辑 recommend_text）
 # =========================================================
 from tv_buy_1_0.run_reco import recommend_text  # noqa: E402
 from tv_buy_1_0.tools.tool_api import router as tools_router  # noqa: E402
 
+
 # =========================================================
-# Root Paths (IMPORTANT)
+# Root Paths
 # =========================================================
 TVBUY_ROOT = Path(__file__).resolve().parents[1]  # => tv_buy_1_0/
+
 
 # =========================================================
 # ✅ 默认环境变量（只在“未设置时”写入）
@@ -93,12 +103,13 @@ _env_default("ZHIPU_BASE_URL", "https://open.bigmodel.cn/api/paas/v4")
 _env_default("ZHIPU_MODEL", "glm-4-plus")
 _env_default("TVBUY_ZHIPU_TIMEOUT", "20")
 
-# ✅ 重要：默认开启“输入框导购模式”
+# ✅ 默认开启输入框导购模式
 _env_default("TVBUY_ENABLE_ZHIPU_QA", "1")
 
 # ✅ 会话记忆（服务端内存）
-_env_default("TVBUY_SESSION_TTL_SEC", "1800")  # 30min
-_env_default("TVBUY_SESSION_MAX_TURNS", "18")  # 最近18轮（user+assistant算两条）
+_env_default("TVBUY_SESSION_TTL_SEC", "1800")
+_env_default("TVBUY_SESSION_MAX_TURNS", "18")
+
 
 # =========================================================
 # 数据源配置
@@ -106,6 +117,7 @@ _env_default("TVBUY_SESSION_MAX_TURNS", "18")  # 最近18轮（user+assistant算
 YAML_PRODUCTS_DIR = Path(os.environ.get("TVBUY_PRODUCTS_YAML_DIR", "").strip())
 USE_SQLITE_FALLBACK = (os.environ.get("TVBUY_USE_SQLITE_FALLBACK", "0").strip() == "1")
 SQLITE_DB = Path(os.environ.get("TVBUY_SQLITE_DB", str(TVBUY_ROOT / "db" / "tv.sqlite")))
+
 
 # =========================================================
 # ✅ 智谱 LLM
@@ -117,7 +129,32 @@ ZHIPU_TIMEOUT_SEC = float((os.environ.get("TVBUY_ZHIPU_TIMEOUT", "20") or "20").
 ENABLE_ZHIPU_QA = (os.environ.get("TVBUY_ENABLE_ZHIPU_QA", "0").strip() == "1")
 
 
-def _http_post_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout_sec: float) -> Dict[str, Any]:
+# =========================================================
+# ✅ 品牌收口：只保留这 10 个品牌
+# =========================================================
+ALLOWED_BRANDS = {
+    "海信",
+    "TCL",
+    "Vidda",
+    "雷鸟",
+    "创维",
+    "小米",
+    "索尼",
+    "三星",
+    "LG",
+    "东芝",
+}
+
+
+# =========================================================
+# HTTP / LLM
+# =========================================================
+def _http_post_json(
+    url: str,
+    headers: Dict[str, str],
+    payload: Dict[str, Any],
+    timeout_sec: float,
+) -> Dict[str, Any]:
     import urllib.request
     import urllib.error
 
@@ -139,7 +176,11 @@ def _http_post_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], 
         raise RuntimeError(f"HTTP request failed: {e}") from e
 
 
-def zhipu_chat(messages: List[Dict[str, str]], model: Optional[str] = None, temperature: float = 0.35) -> str:
+def zhipu_chat(
+    messages: List[Dict[str, str]],
+    model: Optional[str] = None,
+    temperature: float = 0.35,
+) -> str:
     """智谱聊天（带 timeout + 兼容 choices/message/content）"""
     if not ZHIPU_API_KEY:
         raise RuntimeError("ZHIPU_API_KEY 未设置（无法进行智能对话）")
@@ -147,8 +188,15 @@ def zhipu_chat(messages: List[Dict[str, str]], model: Optional[str] = None, temp
     base = (ZHIPU_BASE_URL or "").rstrip("/")
     url = base + "/chat/completions"
 
-    headers = {"Authorization": f"Bearer {ZHIPU_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": model or ZHIPU_MODEL, "messages": messages, "temperature": float(temperature)}
+    headers = {
+        "Authorization": f"Bearer {ZHIPU_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model or ZHIPU_MODEL,
+        "messages": messages,
+        "temperature": float(temperature),
+    }
     data = _http_post_json(url, headers=headers, payload=payload, timeout_sec=ZHIPU_TIMEOUT_SEC)
 
     try:
@@ -157,7 +205,11 @@ def zhipu_chat(messages: List[Dict[str, str]], model: Optional[str] = None, temp
         return json.dumps(data, ensure_ascii=False)
 
 
-def zhipu_chat_with_retry(messages: List[Dict[str, str]], temperature: float = 0.25, retries: int = 2) -> str:
+def zhipu_chat_with_retry(
+    messages: List[Dict[str, str]],
+    temperature: float = 0.25,
+    retries: int = 2,
+) -> str:
     """✅ timeout 自动重试"""
     last_err: Optional[Exception] = None
     for i in range(max(1, retries + 1)):
@@ -175,7 +227,7 @@ def zhipu_chat_with_retry(messages: List[Dict[str, str]], temperature: float = 0
 
 
 # =========================================================
-# ✅ 日期解析：统一展示首发 YYYY-MM（修复 2025-12-01 等格式）
+# ✅ 日期解析：统一展示首发 YYYY-MM
 # =========================================================
 def _parse_ymd_any(v: Any) -> Optional[Tuple[int, int, int]]:
     if v is None:
@@ -245,19 +297,23 @@ def _normalize_launch_to_store(v: Any) -> Optional[str]:
 
 
 # =========================================================
-# YAML 加载策略：缓存 + 目录签名（快） + 文件列表缓存
+# YAML 缓存 / 解析库
 # =========================================================
 _YAML_CACHE_TTL = float((os.environ.get("TVBUY_YAML_CACHE_TTL") or "300").strip() or "300")
 _YAML_MAX_DEPTH = int((os.environ.get("TVBUY_YAML_MAX_DEPTH") or "8").strip() or "8")
 
-_yaml_cache: Dict[str, Any] = {"ts": 0.0, "sig": None, "items": [], "loaded": 0, "paths": []}
+_yaml_cache: Dict[str, Any] = {
+    "ts": 0.0,
+    "sig": None,
+    "items": [],
+    "loaded": 0,
+    "paths": [],
+}
 
-# =========================================================
-# YAML 解析库（优先 ruamel.yaml，否则 pyyaml）
-# =========================================================
 _YAML_IMPL = "none"
 _yaml_ruamel = None
 _yaml_pyyaml = None
+
 try:
     from ruamel.yaml import YAML  # type: ignore
 
@@ -290,11 +346,13 @@ app = FastAPI()
 app.include_router(tools_router)
 templates = Jinja2Templates(directory=str(TVBUY_ROOT / "web" / "templates"))
 
+
 # =========================================================
 # Storage
 # =========================================================
 UPLOAD_DIR = TVBUY_ROOT / "data_raw" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # =========================================================
 # ✅ Session Memory (in-memory)
@@ -321,7 +379,10 @@ def _session_get(session_id: str) -> Deque[Dict[str, str]]:
             _sessions.pop(k, None)
 
     if sid not in _sessions:
-        _sessions[sid] = {"ts": tnow, "turns": deque(maxlen=_SESSION_MAX_TURNS * 2)}
+        _sessions[sid] = {
+            "ts": tnow,
+            "turns": deque(maxlen=_SESSION_MAX_TURNS * 2),
+        }
     _sessions[sid]["ts"] = tnow
     return _sessions[sid]["turns"]
 
@@ -335,16 +396,13 @@ def _session_add(session_id: str, role: str, content: str) -> None:
 
 
 # =========================================================
-# Upload Helpers
+# Upload
 # =========================================================
 def _is_allowed_image(filename: str) -> bool:
     fn = (filename or "").lower()
     return fn.endswith(".png") or fn.endswith(".jpg") or fn.endswith(".jpeg") or fn.endswith(".webp")
 
 
-# =========================================================
-# Upload API
-# =========================================================
 @app.post("/api/upload")
 async def api_upload(file: UploadFile = File(...)):
     if not _is_allowed_image(file.filename or ""):
@@ -363,22 +421,16 @@ async def api_upload(file: UploadFile = File(...)):
 # =========================================================
 # 解析：品牌 / 尺寸 / 预算 / 场景
 # =========================================================
-BRAND_ALIASES = {
+BRAND_ALIASES: Dict[str, List[str]] = {
     "TCL": ["tcl", "t.c.l", "只看tcl", "只要tcl", "我要tcl", "仅tcl", "我只看tcl"],
     "海信": ["海信", "hisense"],
-    "小米": ["小米", "mi", "xiaomi", "redmi", "红米"],
-    "雷鸟": ["雷鸟", "ffalcon", "f falcon", "f-falcon", "falcon", "雷鸟电视"],
     "Vidda": ["vidda", "vidda发现", "发现", "发现x", "发现x mini"],
+    "雷鸟": ["雷鸟", "ffalcon", "f falcon", "f-falcon", "falcon", "雷鸟电视"],
     "创维": ["创维", "skyworth", "酷开", "coocaa"],
+    "小米": ["小米", "mi", "xiaomi", "redmi", "红米"],
     "索尼": ["索尼", "sony"],
     "三星": ["三星", "samsung"],
     "LG": ["lg"],
-    "卡萨帝": ["卡萨帝", "casarte"],
-    "长虹": ["长虹", "changhong"],
-    "华为": ["华为", "huawei"],
-    "荣耀": ["荣耀", "honor"],
-    "松下": ["松下", "panasonic"],
-    "飞利浦": ["飞利浦", "philips"],
     "东芝": ["东芝", "toshiba"],
 }
 
@@ -393,14 +445,23 @@ _SIZE_CLEAR_KWS = [
 ]
 
 _SCENE_ALIASES: Dict[str, List[str]] = {
-    "ps5": ["ps5", "ps", "playstation", "ps 5", "打游戏", "玩游戏", "游戏", "主机", "次世代", "电竞",
-            "120hz", "144hz", "高刷", "低延迟", "输入延迟", "allm", "hdmi2.1", "hdmi 2.1", "fps", "switch", "xbox"],
-    "movie": ["movie", "看电影", "电影", "观影", "影院", "追剧", "看剧", "netflix", "网飞", "disney", "杜比视界", "dolby vision", "hdr"],
-    "bright": ["bright", "强光", "明亮", "白天", "客厅很亮", "阳光直射", "落地窗", "反光", "眩光"],
+    "ps5": [
+        "ps5", "ps", "playstation", "ps 5", "打游戏", "玩游戏", "游戏", "主机",
+        "次世代", "电竞", "120hz", "144hz", "高刷", "低延迟", "输入延迟",
+        "allm", "hdmi2.1", "hdmi 2.1", "fps", "switch", "xbox",
+    ],
+    "movie": [
+        "movie", "看电影", "电影", "观影", "影院", "追剧", "看剧",
+        "netflix", "网飞", "disney", "杜比视界", "dolby vision", "hdr",
+    ],
+    "bright": [
+        "bright", "强光", "明亮", "白天", "客厅很亮", "阳光直射",
+        "落地窗", "反光", "眩光",
+    ],
 }
 
 _TV_DOMAIN_KWS = [
-    "电视", "tv", "tcl", "海信", "索尼", "三星", "lg", "vidda", "雷鸟", "创维", "卡萨帝", "长虹",
+    "电视", "tv", "tcl", "海信", "索尼", "三星", "lg", "vidda", "雷鸟", "创维", "小米", "东芝",
     "画质", "亮度", "分区", "对比度", "背光", "mini led", "oled", "qd", "量子点",
     "hdmi", "hdmi2.1", "allm", "vr", "vrr", "120hz", "144hz", "输入延迟", "ps5", "xbox",
     "杜比视界", "hdr", "怎么选", "推荐", "对比", "比较", "pk", "预算", "尺寸", "英寸", "吋",
@@ -415,11 +476,14 @@ _QA_HINT_KWS = [
     "观看距离", "离多远", "客厅", "卧室", "墙挂", "底座", "安装",
 ]
 
-_COMPARE_HINT_WORDS = ["对比", "比較", "比较", "pk", "区别", "差别", "差异", "哪个好", "怎么选", "推荐哪个", "选哪个", "优缺点", "参数对照", "对照", "vs", "v"]
+_COMPARE_HINT_WORDS = [
+    "对比", "比較", "比较", "pk", "区别", "差别", "差异",
+    "哪个好", "怎么选", "推荐哪个", "选哪个", "优缺点", "参数对照", "对照", "vs", "v",
+]
 
 _RECO_INTENT_KWS = [
-    "推荐", "给我推荐", "帮我推荐", "帮我选", "帮我挑", "给我选", "选一台", "选个", "买哪款", "买哪个",
-    "想买", "求推荐", "选购", "给个建议",
+    "推荐", "给我推荐", "帮我推荐", "帮我选", "帮我挑", "给我选",
+    "选一台", "选个", "买哪款", "买哪个", "想买", "求推荐", "选购", "给个建议",
 ]
 
 
@@ -465,24 +529,37 @@ def _should_clear_size(raw: str) -> bool:
 
 def _parse_brand(raw: str) -> Optional[str]:
     t = (raw or "").strip().lower()
+
     for brand, kws in BRAND_ALIASES.items():
         if any(k in t for k in kws):
             return brand
+
     mbrand = re.search(r"(只看|只要|仅看|我只看|我要)\s*([a-zA-Z\u4e00-\u9fa5]{2,12})", raw or "")
     if mbrand:
         b = mbrand.group(2).strip()
         bl = b.lower()
+
         if bl == "tcl":
             return "TCL"
-        if bl in ("ffalcon", "f-falcon", "falcon"):
-            return "雷鸟"
-        if bl in ("skyworth",):
-            return "创维"
-        if bl in ("sony",):
-            return "索尼"
         if bl in ("hisense",):
             return "海信"
-        return b
+        if bl in ("vidda",):
+            return "Vidda"
+        if bl in ("ffalcon", "f-falcon", "falcon"):
+            return "雷鸟"
+        if bl in ("skyworth", "coocaa"):
+            return "创维"
+        if bl in ("mi", "xiaomi", "redmi"):
+            return "小米"
+        if bl in ("sony",):
+            return "索尼"
+        if bl in ("samsung",):
+            return "三星"
+        if bl in ("lg",):
+            return "LG"
+        if bl in ("toshiba",):
+            return "东芝"
+
     return None
 
 
@@ -593,6 +670,7 @@ def _parse_scene(raw: str) -> Optional[str]:
     t = (raw or "").strip()
     if not t:
         return None
+
     tl = t.lower()
     if tl in ("ps5", "movie", "bright"):
         return tl
@@ -618,7 +696,10 @@ def _parse_scene(raw: str) -> Optional[str]:
     if max(scores.values()) <= 0:
         return None
 
-    best = sorted(scores.items(), key=lambda x: (-x[1], 0 if x[0] == "ps5" else (1 if x[0] == "movie" else 2)))[0][0]
+    best = sorted(
+        scores.items(),
+        key=lambda x: (-x[1], 0 if x[0] == "ps5" else (1 if x[0] == "movie" else 2)),
+    )[0][0]
     return best
 
 
@@ -700,15 +781,19 @@ def _parse_two_indices_any(t: str) -> Optional[Tuple[int, int, str]]:
     m = re.search(r"第\s*(\d{1,2})\s*(?:个|台|款|条|项)?\s*(?:和|与|跟|对比|比较|vs|v)\s*第?\s*(\d{1,2})", tl, re.I)
     if m:
         return int(m.group(1)), int(m.group(2)), "strong"
+
     m = re.search(r"(\d{1,2})\s*(?:和|与|跟|对比|比较)\s*(\d{1,2})", tl, re.I)
     if m:
         return int(m.group(1)), int(m.group(2)), "strong"
+
     m = re.search(r"(\d{1,2})\s*(?:vs|v)\s*(\d{1,2})", tl, re.I)
     if m:
         return int(m.group(1)), int(m.group(2)), "strong"
+
     m = re.fullmatch(r"\s*(\d{1,2})\s*(?:[,\s/|;]+)\s*(\d{1,2})\s*", tl)
     if m:
         return int(m.group(1)), int(m.group(2)), "weak"
+
     return None
 
 
@@ -740,21 +825,26 @@ def _parse_compare_models(t: str) -> Optional[Tuple[str, str]]:
     s = (t or "").strip()
     if not s:
         return None
+
     quoted = re.findall(r"[\"“”'‘’](.*?)[\"“”'‘’]", s)
     quoted = [x.strip() for x in quoted if x.strip()]
     if len(quoted) >= 2:
         return quoted[0], quoted[1]
+
     m = re.search(r"(.+?)\s*(?:和|与|vs|v)\s*(.+)", s, flags=re.I)
     if not m:
         return None
+
     a = m.group(1).strip()
     b = m.group(2).strip()
     b = re.sub(r"(对比|比較|比较|pk|哪个好|怎么选|区别|差别|差异)\s*$", "", b, flags=re.I).strip()
     a = re.sub(r"(对比|比較|比较|pk)\s*$", "", a, flags=re.I).strip()
+
     if not a or not b or a == b:
         return None
     if not (re.search(r"\d", a) or re.search(r"\d", b)):
         return None
+
     return a, b
 
 
@@ -762,12 +852,14 @@ def _find_best_candidate_by_text(cands: List[Dict[str, Any]], q: str) -> Optiona
     qq = _norm_text(q)
     if not qq:
         return None
+
     for it in cands:
         m = _norm_text(str(it.get("model") or ""))
         b = _norm_text(str(it.get("brand") or ""))
         combo = b + m
         if qq == m or qq == combo:
             return it
+
     best = None
     best_score = -1
     for it in cands:
@@ -795,11 +887,12 @@ def _find_best_candidate_by_text(cands: List[Dict[str, Any]], q: str) -> Optiona
         if score > best_score:
             best_score = score
             best = it
+
     return best if best_score > 0 else None
 
 
 # =========================================================
-# ✅ 价格区间解析（兼容中文破折号/全角）
+# ✅ 价格区间解析
 # =========================================================
 def _parse_price_bucket_range(v: str) -> Tuple[Optional[int], Optional[int], Optional[str]]:
     s = (v or "").strip()
@@ -846,7 +939,7 @@ def _is_budget_range_string(s: str) -> bool:
 
 
 # =========================================================
-# ✅ 判定“纯尺寸切换输入”（只有它才清空其它槽位）
+# ✅ 判定“纯尺寸切换输入”
 # =========================================================
 def _is_size_only_input(text: str) -> bool:
     t = (text or "").strip()
@@ -877,7 +970,7 @@ def _is_size_only_input(text: str) -> bool:
 
 
 # =========================================================
-# YAML 产品加载（缓存 + 快速目录签名 + 文件列表缓存）
+# YAML 产品加载
 # =========================================================
 def _safe_int(x: Any) -> Optional[int]:
     if x is None:
@@ -931,18 +1024,31 @@ def _normalize_brand(d: Dict[str, Any]) -> Optional[str]:
     v = _pick(d, ["brand", "品牌", "厂商", "manufacturer"])
     if v is None:
         return None
+
     s = str(v).strip()
     sl = s.lower()
+
     if sl == "tcl":
         return "TCL"
-    if sl in ("sony",):
-        return "索尼"
     if sl in ("hisense",):
         return "海信"
+    if sl in ("vidda",):
+        return "Vidda"
     if sl in ("ffalcon", "f-falcon", "falcon"):
         return "雷鸟"
-    if sl in ("skyworth",):
+    if sl in ("skyworth", "coocaa"):
         return "创维"
+    if sl in ("mi", "xiaomi", "redmi"):
+        return "小米"
+    if sl in ("sony",):
+        return "索尼"
+    if sl in ("samsung",):
+        return "三星"
+    if sl in ("lg",):
+        return "LG"
+    if sl in ("toshiba",):
+        return "东芝"
+
     return s or None
 
 
@@ -977,11 +1083,13 @@ def _expand_excel_import_row(row: Dict[str, Any], source_name: str) -> List[Dict
             size_inch = _safe_int(v.get("size_inch"))
             if not size_inch:
                 continue
+
             model = (
                 f"{size_inch}{str(base_model).strip()}"
                 if not re.match(r"^\d{2,3}", str(base_model).strip())
                 else str(base_model).strip()
             )
+
             price_cny = _safe_int(v.get("price_cny"))
             out.append(
                 {
@@ -1016,10 +1124,12 @@ def _expand_excel_import_row(row: Dict[str, Any], source_name: str) -> List[Dict
 def _fast_dir_signature_and_paths(root: Path) -> Tuple[str, List[Path]]:
     if not root.exists():
         return "", []
+
     paths: List[Path] = []
     cnt = 0
     latest = 0.0
     stack: List[Tuple[Path, int]] = [(root, 0)]
+
     while stack:
         d, depth = stack.pop()
         if depth > _YAML_MAX_DEPTH:
@@ -1036,6 +1146,7 @@ def _fast_dir_signature_and_paths(root: Path) -> Tuple[str, List[Path]]:
                         name = entry.name.lower()
                         if not (name.endswith(".yaml") or name.endswith(".yml")):
                             continue
+
                         cnt += 1
                         st = entry.stat(follow_symlinks=False)
                         if st.st_mtime > latest:
@@ -1045,6 +1156,7 @@ def _fast_dir_signature_and_paths(root: Path) -> Tuple[str, List[Path]]:
                         continue
         except Exception:
             continue
+
     sig = f"{cnt}:{int(latest)}"
     paths.sort(key=lambda p: str(p))
     return sig, paths
@@ -1052,6 +1164,7 @@ def _fast_dir_signature_and_paths(root: Path) -> Tuple[str, List[Path]]:
 
 def _load_yaml_products() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     now = time.time()
+
     if now - float(_yaml_cache.get("ts", 0.0)) < _YAML_CACHE_TTL:
         return list(_yaml_cache.get("items") or []), {
             "yaml_dir": str(YAML_PRODUCTS_DIR),
@@ -1096,19 +1209,27 @@ def _load_yaml_products() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
                 text = p.read_text(encoding="utf-8-sig")
         except Exception:
             continue
+
         try:
             obj = _yaml_safe_load(text)
         except Exception:
             continue
+
         rows = _flatten_yaml_obj(obj)
         if not rows:
             continue
+
         loaded_files += 1
         for row in rows:
             for it in _expand_excel_import_row(row, source_name=p.name):
                 if not it.get("model") and not it.get("brand"):
                     continue
                 it["launch_date"] = _normalize_launch_to_store(it.get("launch_date"))
+
+                # ✅ 品牌收口：只保留允许品牌
+                if it.get("brand") not in ALLOWED_BRANDS:
+                    continue
+
                 items.append(it)
 
     _yaml_cache.update({"ts": now, "sig": sig, "items": items, "loaded": loaded_files, "paths": paths})
@@ -1122,7 +1243,7 @@ def _load_yaml_products() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
 
 
 # =========================================================
-# sqlite fallback（可选）— 你当前默认关闭
+# sqlite fallback（可选）
 # =========================================================
 def _sqlite_query_products_exact(
     brand: Optional[str],
@@ -1134,7 +1255,8 @@ def _sqlite_query_products_exact(
         return []
     if not SQLITE_DB.exists():
         return []
-    # 你之前版本如需启用 sqlite，这里接回你的实现
+
+    # 如后续你要接回 sqlite，可在这里扩展
     return []
 
 
@@ -1150,15 +1272,18 @@ def _norm_key(brand: Optional[str], model: Optional[str], size: Optional[int]) -
 
 def _merge_products(yaml_items: List[Dict[str, Any]], sqlite_items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     mp: Dict[str, Dict[str, Any]] = {}
+
     for it in sqlite_items:
         k = _norm_key(it.get("brand"), it.get("model"), it.get("size_inch"))
         if k and k not in mp:
             mp[k] = it
+
     for it in yaml_items:
         k = _norm_key(it.get("brand"), it.get("model"), it.get("size_inch"))
         if not k:
             continue
         mp[k] = it
+
     return list(mp.values())
 
 
@@ -1175,8 +1300,13 @@ def _filter_products(
         s = it.get("size_inch")
         p = it.get("price_cny")
 
+        # ✅ 品牌收口：兜底再过滤一次
+        if b not in ALLOWED_BRANDS:
+            continue
+
         if brand and (b != brand):
             continue
+
         if size is not None:
             if not isinstance(s, (int, float)):
                 continue
@@ -1189,7 +1319,9 @@ def _filter_products(
                 continue
             if budget_max is not None and ip > int(budget_max):
                 continue
+
         out.append(it)
+
     return out
 
 
@@ -1211,9 +1343,20 @@ def list_candidates(
     limit: int = 10,
 ) -> Tuple[int, List[Dict[str, Any]], Dict[str, Any]]:
     yaml_items, meta = _load_yaml_products()
-    sqlite_items = _sqlite_query_products_exact(brand=brand, size=size, budget_min=budget_min, budget_max=budget_max)
+    sqlite_items = _sqlite_query_products_exact(
+        brand=brand,
+        size=size,
+        budget_min=budget_min,
+        budget_max=budget_max,
+    )
     merged = _merge_products(yaml_items=yaml_items, sqlite_items=sqlite_items)
-    filt = _filter_products(merged, brand=brand, size=size, budget_min=budget_min, budget_max=budget_max)
+    filt = _filter_products(
+        merged,
+        brand=brand,
+        size=size,
+        budget_min=budget_min,
+        budget_max=budget_max,
+    )
     sorted_items = _sort_by_price_desc(filt)
     return len(sorted_items), sorted_items[:limit], meta
 
@@ -1228,8 +1371,10 @@ def _format_candidates(
     budget_bucket: Optional[str],
 ) -> str:
     cond = []
+
     if brand:
         cond.append(f"品牌={brand}")
+
     if budget_bucket == "skip":
         cond.append("不限预算")
     elif budget_min is not None and budget_max is not None:
@@ -1245,6 +1390,7 @@ def _format_candidates(
         cond.append(f"尺寸={size}寸")
 
     head = f"📌 当前筛选候选：{total} 台（" + "，".join(cond) + "）"
+
     if total == 0:
         return head + "\n⚠️ 当前条件下没有候选。你可以：放宽品牌/提高预算/换尺寸/或输入“不限尺寸”。"
 
@@ -1253,7 +1399,9 @@ def _format_candidates(
         price = tv.get("price_cny")
         price_str = f"￥{price}" if price is not None else "￥未知"
         launch_mm = fmt_launch_yyyy_mm(tv.get("launch_date"))
-        lines.append(f"{i}. {tv.get('brand')} {tv.get('model')} {tv.get('size_inch')}寸 | 首发 {launch_mm} | {price_str}")
+        lines.append(
+            f"{i}. {tv.get('brand')} {tv.get('model')} {tv.get('size_inch')}寸 | 首发 {launch_mm} | {price_str}"
+        )
     return "\n".join(lines)
 
 
@@ -1279,7 +1427,6 @@ def _build_llm_sales_messages(
     history: List[Dict[str, str]],
     local_reco: str = "",
 ) -> List[Dict[str, str]]:
-    # ✅ 改造：先给“最终推荐方案”，追问放最后且明确“不回答也行”
     system = (
         "你是“晓春哥 XCG”的智能导购（电视选购顾问）。目标：像真人导购一样对话，不要死板推流程。\n"
         "严格要求：\n"
@@ -1313,7 +1460,12 @@ def _build_llm_sales_messages(
 
     msgs: List[Dict[str, str]] = [{"role": "system", "content": system}]
     if history:
-        msgs.append({"role": "user", "content": "最近对话历史(供上下文追踪)：\n" + json.dumps(history[-10:], ensure_ascii=False)})
+        msgs.append(
+            {
+                "role": "user",
+                "content": "最近对话历史(供上下文追踪)：\n" + json.dumps(history[-10:], ensure_ascii=False),
+            }
+        )
     msgs.append({"role": "user", "content": "导购上下文(JSON)：\n" + json.dumps(payload, ensure_ascii=False)})
     msgs.append({"role": "user", "content": "请直接像导购一样回答用户，不要输出代码/JSON。"})
     return msgs
@@ -1343,7 +1495,7 @@ def _smart_fallback_text(state: Dict[str, Any], user_text: str) -> str:
 
 
 # =========================================================
-# ✅ 后端兜底：当智谱给了追问，也要追加“没问题就给最终推荐”
+# ✅ 后端兜底：追问时追加默认最终推荐
 # =========================================================
 def _looks_like_only_questions(ans: str) -> bool:
     t = (ans or "").strip().lower()
@@ -1360,14 +1512,10 @@ def _append_default_final_reco_if_needed(
     top_candidates: List[Dict[str, Any]],
     local_reco: str,
 ) -> str:
-    """
-    如果答案里出现“关键追问”，但没有给出能直接下单的最终推荐，则强制追加一段默认最终推荐。
-    """
     a = (ans or "").strip()
     if not a:
         a = ""
 
-    lower = a.lower()
     if ("最终推荐" in a) or ("最终方案" in a) or ("直接下单" in a) or ("你可以直接买" in a) or ("直接买" in a):
         return a
 
@@ -1415,7 +1563,6 @@ def _append_default_final_reco_if_needed(
 def next_question(state: Dict[str, Any]) -> Optional[str]:
     """
     ✅ 新流程：尺寸 → 价格区间 → 品牌（可选/可跳过：不限品牌）→ 主要用途
-    - brand_unlimited=True 代表用户已明确“不限品牌”，品牌步骤视为完成
     """
     if state.get("size") is None and not state.get("size_unlimited", False):
         return "请先选择【尺寸】（点页面按钮）。如果你想不限定尺寸，可以直接输入：不限尺寸。"
@@ -1425,7 +1572,7 @@ def next_question(state: Dict[str, Any]) -> Optional[str]:
 
     brand_unlimited = bool(state.get("brand_unlimited", False))
     if (state.get("brand") is None) and (not state.get("brand_lock")) and (not brand_unlimited):
-        return "品牌偏好是什么？你可以直接说：TCL/海信/索尼/小米/雷鸟/创维…（或输入：不限品牌）"
+        return "品牌偏好是什么？你可以直接说：TCL/海信/Vidda/雷鸟/创维/小米/索尼/三星/LG/东芝（或输入：不限品牌）"
 
     if state.get("scene") is None:
         return "主要用途是什么？你可以直接说：打游戏/玩PS5/看电影/追剧/白天客厅强光（也支持输入 ps5 / movie / bright）"
@@ -1437,7 +1584,7 @@ class ChatReq(BaseModel):
     text: str
     state: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = None
-    source: Optional[str] = None  # ✅ ui_button / user_text
+    source: Optional[str] = None  # ui_button / user_text
 
 
 class ChatResp(BaseModel):
@@ -1451,7 +1598,7 @@ _RESET_KWS = ("重置", "清空", "重新开始", "reset")
 
 def _should_run_rag(source: str, text: str) -> bool:
     """
-    ✅ 关键：默认只有用户输入框（user_text）才走 RAG 导购。
+    ✅ 默认只有用户输入框（user_text）才走 RAG 导购
     - ui_button：不走（但“用途刚确定”例外在 chat() 里处理）
     - user_text：默认走（但 reset/确认类除外）
     """
@@ -1528,7 +1675,7 @@ def chat(req: ChatReq):
         return _ret("✅ 已重置。请先选择【尺寸】（点页面按钮），或输入：不限尺寸。", None)
 
     # -----------------------------------------------------
-    # pending_size（保持你原逻辑）
+    # pending_size
     # -----------------------------------------------------
     pending_size = base.get("pending_size")
     if isinstance(pending_size, dict) and pending_size.get("from") and pending_size.get("to"):
@@ -1539,6 +1686,7 @@ def chat(req: ChatReq):
             base["size"] = to_size
             base["size_unlimited"] = False
             base["pending_size"] = None
+
             if isinstance(pending_size.get("apply"), dict):
                 ap = pending_size["apply"]
                 if ap.get("budget_bucket") is not None:
@@ -1624,7 +1772,7 @@ def chat(req: ChatReq):
     parsed_size = _parse_size(t)
     lo, hi, bucket = _parse_price_bucket_range(t)
 
-    # 尺寸冲突确认（已选A，句子出现B且还有其它条件 → 反问确认）
+    # 尺寸冲突确认
     if parsed_size is not None and base.get("size") is not None:
         old_size = int(base["size"])
         new_size = int(parsed_size)
@@ -1635,10 +1783,20 @@ def chat(req: ChatReq):
             and (not _explicit_size_switch(t, to_size=new_size))
         ):
             apply_pack: Dict[str, Any] = {}
+
             if bucket is not None:
-                apply_pack.update({"budget_bucket": bucket, "budget_min": lo, "budget_max": hi, "budget": hi})
+                apply_pack.update(
+                    {"budget_bucket": bucket, "budget_min": lo, "budget_max": hi, "budget": hi}
+                )
             elif base.get("budget_bucket") != "skip" and parsed_budget is not None:
-                apply_pack.update({"budget_bucket": "manual", "budget_min": None, "budget_max": int(parsed_budget), "budget": int(parsed_budget)})
+                apply_pack.update(
+                    {
+                        "budget_bucket": "manual",
+                        "budget_min": None,
+                        "budget_max": int(parsed_budget),
+                        "budget": int(parsed_budget),
+                    }
+                )
 
             if _should_clear_brand(t):
                 apply_pack.update({"brand_unlimited": True})
@@ -1669,7 +1827,7 @@ def chat(req: ChatReq):
         base["brand"] = parsed_brand
         base["brand_unlimited"] = False
 
-    # ✅ scene_just_set（用途刚刚设置）
+    # scene_just_set
     old_scene = base.get("scene")
     if parsed_scene is not None:
         old_scene = base.get("scene")
@@ -1696,9 +1854,19 @@ def chat(req: ChatReq):
             if ENABLE_ZHIPU_QA and ZHIPU_API_KEY and _is_tv_domain_question(t):
                 try:
                     total_all, cands_all, _meta_all = list_candidates(
-                        size=None, brand=base.get("brand"), budget_min=base.get("budget_min"), budget_max=base.get("budget_max"), limit=10
+                        size=None,
+                        brand=base.get("brand"),
+                        budget_min=base.get("budget_min"),
+                        budget_max=base.get("budget_max"),
+                        limit=10,
                     )
-                    msgs = _build_llm_sales_messages(base, t, topn=cands_all[:8], history=list(history_deque), local_reco="")
+                    msgs = _build_llm_sales_messages(
+                        base,
+                        t,
+                        topn=cands_all[:8],
+                        history=list(history_deque),
+                        local_reco="",
+                    )
                     ans = zhipu_chat_with_retry(msgs, temperature=0.25, retries=2)
                     ans = _append_default_final_reco_if_needed(ans, base, cands_all[:8], local_reco="")
                     return _ret(ans or "（导购生成失败：空输出）", None)
@@ -1720,10 +1888,7 @@ def chat(req: ChatReq):
     )
 
     # -----------------------------------------------------
-    # RAG 触发策略：
-    # - user_text：默认触发
-    # - ui_button：默认不触发
-    #   但：用途刚确定(scene_just_set) 且 size+budget_bucket 已完成 => 放行一次
+    # RAG 触发策略
     # -----------------------------------------------------
     allow_rag = _should_run_rag(source, t)
     if (not allow_rag) and scene_just_set:
@@ -1731,7 +1896,7 @@ def chat(req: ChatReq):
             allow_rag = True
 
     # -----------------------------------------------------
-    # ✅ 机型名对比（用户输入两个型号）优先处理（更像导购）
+    # ✅ 机型名对比优先处理
     # -----------------------------------------------------
     pair = _parse_compare_models(t)
     if pair is not None and _is_tv_domain_question(t):
@@ -1759,14 +1924,19 @@ def chat(req: ChatReq):
                     except Exception:
                         local_reco = ""
 
-                msgs = _build_llm_sales_messages(base, t, topn=topn, history=list(history_deque), local_reco=local_reco)
+                msgs = _build_llm_sales_messages(
+                    base,
+                    t,
+                    topn=topn,
+                    history=list(history_deque),
+                    local_reco=local_reco,
+                )
                 ans = zhipu_chat_with_retry(msgs, temperature=0.22, retries=2)
                 ans = _append_default_final_reco_if_needed(ans, base, topn, local_reco=local_reco)
                 return _ret(ans or "（对比生成失败：空输出）", None)
             except Exception:
                 return _ret(_smart_fallback_text(base, t), None)
 
-        # 本地兜底字段对照
         lines = ["（当前未启用智能对比：先给你本地字段对比兜底）\n"]
         if a:
             lines.append(
@@ -1774,17 +1944,19 @@ def chat(req: ChatReq):
             )
         else:
             lines.append(f"A: {qa}（本地库未匹配到具体机型）")
+
         if b:
             lines.append(
                 f"B: {b.get('brand')} {b.get('model')} {b.get('size_inch')}寸  价格={b.get('price_cny')}  首发={fmt_launch_yyyy_mm(b.get('launch_date'))}  定位={b.get('positioning')}"
             )
         else:
             lines.append(f"B: {qb}（本地库未匹配到具体机型）")
+
         lines.append("\n你也可以把预算/用途说一下（ps5/电影/强光），我会按你的场景给结论。")
         return _ret("\n".join(lines), None)
 
     # -----------------------------------------------------
-    # ✅ 序号对比（1 vs 2 / 1和2）
+    # ✅ 序号对比
     # -----------------------------------------------------
     cmp_idx = _parse_two_indices_any(t)
     if cmp_idx is not None and total_all > 0:
@@ -1824,6 +1996,7 @@ def chat(req: ChatReq):
                         )
                     except Exception:
                         local_reco = ""
+
                 msgs = _build_llm_sales_messages(
                     base,
                     f"请对比：{a.get('brand')} {a.get('model')} vs {b.get('brand')} {b.get('model')}。{t}",
@@ -1837,21 +2010,26 @@ def chat(req: ChatReq):
             except Exception:
                 return _ret(_smart_fallback_text(base, t), None)
 
-        # 本地字段对照兜底
         lines = []
         lines.append("（当前未启用智能对比：先给你本地字段对比）\n")
-        lines.append(f"A: {a.get('brand')} {a.get('model')} {a.get('size_inch')}寸  价格={a.get('price_cny')}  首发={fmt_launch_yyyy_mm(a.get('launch_date'))}  定位={a.get('positioning')}")
-        lines.append(f"B: {b.get('brand')} {b.get('model')} {b.get('size_inch')}寸  价格={b.get('price_cny')}  首发={fmt_launch_yyyy_mm(b.get('launch_date'))}  定位={b.get('positioning')}")
+        lines.append(
+            f"A: {a.get('brand')} {a.get('model')} {a.get('size_inch')}寸  价格={a.get('price_cny')}  首发={fmt_launch_yyyy_mm(a.get('launch_date'))}  定位={a.get('positioning')}"
+        )
+        lines.append(
+            f"B: {b.get('brand')} {b.get('model')} {b.get('size_inch')}寸  价格={b.get('price_cny')}  首发={fmt_launch_yyyy_mm(b.get('launch_date'))}  定位={b.get('positioning')}"
+        )
         return _ret("\n".join(lines), None)
 
-    # pending_compare 确认（弱确认模式）
+    # pending_compare 确认
     pending = base.get("pending_compare")
     if isinstance(pending, dict) and pending.get("a") and pending.get("b") and _is_compare_confirm_reply(t):
         a_i = int(pending["a"])
         b_i = int(pending["b"])
         base["pending_compare"] = None
+
         if not _valid_index_pair(a_i, b_i, total_all):
             return _ret("当前候选不足以完成对比，我先把候选再列一次。", None)
+
         a_i, b_i = _normalize_pair_order(a_i, b_i)
         a = cands_all[a_i - 1]
         b = cands_all[b_i - 1]
@@ -1869,7 +2047,14 @@ def chat(req: ChatReq):
                         )
                     except Exception:
                         local_reco = ""
-                msgs = _build_llm_sales_messages(base, f"用户确认对比：{a_i} vs {b_i}", topn=[a, b], history=list(history_deque), local_reco=local_reco)
+
+                msgs = _build_llm_sales_messages(
+                    base,
+                    f"用户确认对比：{a_i} vs {b_i}",
+                    topn=[a, b],
+                    history=list(history_deque),
+                    local_reco=local_reco,
+                )
                 ans = zhipu_chat_with_retry(msgs, temperature=0.22, retries=2)
                 ans = _append_default_final_reco_if_needed(ans, base, [a, b], local_reco=local_reco)
                 return _ret(ans or "（对比生成失败：空输出）", None)
@@ -1883,13 +2068,14 @@ def chat(req: ChatReq):
         return _ret("\n".join(lines), None)
 
     # -----------------------------------------------------
-    # ✅ RAG 导购（含“追问兜底追加最终推荐”）
+    # ✅ RAG 导购
     # -----------------------------------------------------
     if allow_rag and _is_tv_domain_question(t):
         if ENABLE_ZHIPU_QA and ZHIPU_API_KEY:
             try:
                 topn = (cands_all or [])[:12]
                 local_reco = ""
+
                 if base.get("scene") is not None and base.get("size") is not None:
                     try:
                         local_reco = recommend_text(
@@ -1901,7 +2087,13 @@ def chat(req: ChatReq):
                     except Exception:
                         local_reco = ""
 
-                msgs = _build_llm_sales_messages(base, t, topn=topn, history=list(history_deque), local_reco=local_reco)
+                msgs = _build_llm_sales_messages(
+                    base,
+                    t,
+                    topn=topn,
+                    history=list(history_deque),
+                    local_reco=local_reco,
+                )
                 ans = zhipu_chat_with_retry(msgs, temperature=0.25, retries=2)
                 ans = _append_default_final_reco_if_needed(ans, base, topn, local_reco=local_reco)
                 if ans:
@@ -1988,6 +2180,7 @@ def health():
         _load_yaml_products()
     except Exception:
         pass
+
     return {
         "ok": True,
         "ts": int(time.time()),
